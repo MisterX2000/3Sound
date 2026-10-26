@@ -440,12 +440,24 @@
 
                     <!-- Play/Playing Status Overlay Icon -->
                     <div :class="isPlaying(sound.id) ? 'opacity-100' : 'opacity-0'" class="status-overlay absolute inset-0 flex items-center justify-center group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px] pointer-events-none">
-                      <div :class="isLooping(sound.id) ? 'bg-emerald-600 shadow-emerald-600/50' : 'bg-brand-600 shadow-brand-600/50'" class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
-                        <svg x-show="isPlaying(sound.id)" class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <button
+                        type="button"
+                        x-show="isPlaying(sound.id)"
+                        @click.stop="stopSound(sound.id)"
+                        title="Stop playback"
+                        :class="isLooping(sound.id) ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/50' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/50'"
+                        class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 hover:scale-105 active:scale-95 transition-all pointer-events-auto cursor-pointer"
+                      >
+                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
                           <rect x="6" y="5" width="4" height="14" rx="1"></rect>
                           <rect x="14" y="5" width="4" height="14" rx="1"></rect>
                         </svg>
-                        <svg x-show="!isPlaying(sound.id)" class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
+                      </button>
+                      <div 
+                        x-show="!isPlaying(sound.id)"
+                        class="play-icon-box w-10 h-10 rounded-full bg-brand-600 shadow-brand-600/50 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform pointer-events-none"
+                      >
+                        <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </div>
@@ -550,12 +562,24 @@
 
                     <!-- Play/Playing Status Overlay Icon -->
                     <div :class="isPlaying(sound.id) ? 'opacity-100' : 'opacity-0'" class="status-overlay absolute inset-0 flex items-center justify-center group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px] pointer-events-none">
-                      <div :class="isLooping(sound.id) ? 'bg-emerald-600 shadow-emerald-600/50' : 'bg-brand-600 shadow-brand-600/50'" class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
-                        <svg x-show="isPlaying(sound.id)" class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <button
+                        type="button"
+                        x-show="isPlaying(sound.id)"
+                        @click.stop="stopSound(sound.id)"
+                        title="Stop playback"
+                        :class="isLooping(sound.id) ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/50' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/50'"
+                        class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 hover:scale-105 active:scale-95 transition-all pointer-events-auto cursor-pointer"
+                      >
+                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
                           <rect x="6" y="5" width="4" height="14" rx="1"></rect>
                           <rect x="14" y="5" width="4" height="14" rx="1"></rect>
                         </svg>
-                        <svg x-show="!isPlaying(sound.id)" class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
+                      </button>
+                      <div 
+                        x-show="!isPlaying(sound.id)"
+                        class="play-icon-box w-10 h-10 rounded-full bg-brand-600 shadow-brand-600/50 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform pointer-events-none"
+                      >
+                        <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </div>
@@ -725,12 +749,24 @@
 
                     <!-- Play/Playing Status Overlay Icon -->
                     <div :class="isPlaying(sound.id) ? 'opacity-100' : 'opacity-0'" class="status-overlay absolute inset-0 flex items-center justify-center group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px] pointer-events-none">
-                      <div :class="isLooping(sound.id) ? 'bg-emerald-600 shadow-emerald-600/50' : 'bg-brand-600 shadow-brand-600/50'" class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
-                        <svg x-show="isPlaying(sound.id)" class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <button
+                        type="button"
+                        x-show="isPlaying(sound.id)"
+                        @click.stop="stopSound(sound.id)"
+                        title="Stop playback"
+                        :class="isLooping(sound.id) ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/50' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/50'"
+                        class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 hover:scale-105 active:scale-95 transition-all pointer-events-auto cursor-pointer"
+                      >
+                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
                           <rect x="6" y="5" width="4" height="14" rx="1"></rect>
                           <rect x="14" y="5" width="4" height="14" rx="1"></rect>
                         </svg>
-                        <svg x-show="!isPlaying(sound.id)" class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
+                      </button>
+                      <div 
+                        x-show="!isPlaying(sound.id)"
+                        class="play-icon-box w-10 h-10 rounded-full bg-brand-600 shadow-brand-600/50 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform pointer-events-none"
+                      >
+                        <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </div>
@@ -910,12 +946,24 @@
 
                   <!-- Play/Playing Status Overlay Icon -->
                   <div :class="isPlaying(sound.id) ? 'opacity-100' : 'opacity-0'" class="status-overlay absolute inset-0 flex items-center justify-center group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px] pointer-events-none">
-                    <div :class="isLooping(sound.id) ? 'bg-emerald-600 shadow-emerald-600/50' : 'bg-brand-600 shadow-brand-600/50'" class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
-                      <svg x-show="isPlaying(sound.id)" class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                    <button
+                      type="button"
+                      x-show="isPlaying(sound.id)"
+                      @click.stop="stopSound(sound.id)"
+                      title="Stop playback"
+                      :class="isLooping(sound.id) ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/50' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/50'"
+                      class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 hover:scale-105 active:scale-95 transition-all pointer-events-auto cursor-pointer"
+                    >
+                      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
                         <rect x="6" y="5" width="4" height="14" rx="1"></rect>
                         <rect x="14" y="5" width="4" height="14" rx="1"></rect>
                       </svg>
-                      <svg x-show="!isPlaying(sound.id)" class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
+                    </button>
+                    <div 
+                      x-show="!isPlaying(sound.id)"
+                      class="play-icon-box w-10 h-10 rounded-full bg-brand-600 shadow-brand-600/50 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform pointer-events-none"
+                    >
+                      <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
                       </svg>
                     </div>

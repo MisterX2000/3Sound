@@ -1,12 +1,13 @@
 /**
  * Audio Engine for Soundboard
- * Handles playback, volume/mute control, loop toggle, and CSS-driven progress lifecycle.
+ * Handles polyphonic playback (Rapid Trigger), volume/mute control, loop toggle, and CSS-driven progress lifecycle.
  */
 class AudioManager {
   constructor(options = {}) {
     this.masterVolume = options.volume ?? 0.8;
     this.isMuted = Boolean(options.muted);
     this.allowOverlap = options.allowOverlap ?? true;
+    this.maxVoicesPerSound = options.maxVoicesPerSound ?? 10;
     this.onUpdate = options.onUpdate || (() => {});
     this.onPlay = options.onPlay || (() => {});
     this.onEnd = options.onEnd || (() => {});
@@ -15,8 +16,10 @@ class AudioManager {
     this.onLoopToggle = options.onLoopToggle || (() => {});
     this.onLoopCycle = options.onLoopCycle || (() => {});
 
-    // soundId -> { audio, endTimeoutId, sound, isLooping, isStopped }
+    // soundId -> Set of active voice items: { id, audio, sound, isLooping, isStopped, endTimeoutId }
     this.activeAudios = new Map();
+    // soundId -> string (id of newest voice triggered)
+    this.latestVoiceIds = new Map();
   }
 
   setVolume(volume) {
@@ -35,9 +38,25 @@ class AudioManager {
 
   syncVolumes() {
     const effective = this.isMuted ? 0 : this.masterVolume;
-    this.activeAudios.forEach((item) => {
-      item.audio.volume = effective;
+    this.activeAudios.forEach((voices) => {
+      voices.forEach((voice) => {
+        voice.audio.volume = effective;
+      });
     });
+  }
+
+  isPlaying(soundId) {
+    const voices = this.activeAudios.get(soundId);
+    return Boolean(voices && voices.size > 0);
+  }
+
+  isLooping(soundId) {
+    const voices = this.activeAudios.get(soundId);
+    if (!voices || voices.size === 0) return false;
+    for (const v of voices) {
+      if (v.isLooping && !v.isStopped) return true;
+    }
+    return false;
   }
 
   play(sound, startWithLoop = false) {
@@ -46,8 +65,23 @@ class AudioManager {
     // Solo mode: stop all active sounds first
     if (!this.allowOverlap) {
       this.stopAll();
-    } else if (this.activeAudios.has(soundId)) {
+    } else if (startWithLoop || this.isLooping(soundId)) {
+      // Loop mode or currently looping: stop prior voices to avoid out-of-phase duplicate loops
       this.stop(soundId);
+    }
+
+    let voices = this.activeAudios.get(soundId);
+    if (!voices) {
+      voices = new Set();
+      this.activeAudios.set(soundId, voices);
+    }
+
+    // Rapid Trigger polyphony limit: recycle oldest voice when reaching max voice limit
+    if (voices.size >= this.maxVoicesPerSound) {
+      const oldestVoice = voices.values().next().value;
+      if (oldestVoice) {
+        this.stopVoice(soundId, oldestVoice);
+      }
     }
 
     const audio = new Audio(sound.sound_url);
@@ -55,128 +89,144 @@ class AudioManager {
     audio.loop = Boolean(startWithLoop);
     audio.volume = this.isMuted ? 0 : this.masterVolume;
 
-    const activeItem = {
+    const voice = {
+      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
       audio,
-      endTimeoutId: null,
       sound,
       isLooping: Boolean(startWithLoop),
-      isStopped: false
+      isStopped: false,
+      endTimeoutId: null
     };
 
-    // Store immediately so stop() or stopAll() can immediately reach and cancel this audio
-    this.activeAudios.set(soundId, activeItem);
-    this.onUpdate(soundId, { isPlaying: true, isLooping: activeItem.isLooping });
+    voices.add(voice);
+    this.latestVoiceIds.set(soundId, voice.id);
+    this.onUpdate(soundId, { isPlaying: true, isLooping: Boolean(startWithLoop) });
 
-    // Trigger GPU animation when audio actually starts playing through speaker output
+    // Trigger GPU animation when audio starts outputting sound
     audio.addEventListener('playing', () => {
-      if (activeItem.isStopped) return;
+      if (voice.isStopped) return;
       const duration = audio.duration && !isNaN(audio.duration) && audio.duration > 0
         ? audio.duration
         : (sound.duration && sound.duration > 0 ? sound.duration : 1);
-      this.onPlay(soundId, { duration, isLooping: activeItem.isLooping });
+      this.onPlay(soundId, { duration, isLooping: voice.isLooping });
     });
 
     // Re-synchronize loop iteration on audio seeked
     audio.addEventListener('seeked', () => {
-      if (activeItem.isStopped || !activeItem.isLooping) return;
+      if (voice.isStopped || !voice.isLooping) return;
       this.onLoopCycle(soundId);
     });
 
-    // Ended event: hold bar at 100% for 150ms, then fade out (250ms) before cleanup
+    // Ended event: hold bar at 100% for 150ms, then fade out (250ms) before voice cleanup
     audio.addEventListener('ended', () => {
-      if (activeItem.isStopped) return;
-      this.onEnd(soundId);
+      if (voice.isStopped) return;
 
-      activeItem.endTimeoutId = setTimeout(() => {
-        activeItem.endTimeoutId = null;
-        this.cleanup(soundId);
+      const isLatest = this.latestVoiceIds.get(soundId) === voice.id;
+      if (isLatest) {
+        this.onEnd(soundId);
+      }
+
+      voice.endTimeoutId = setTimeout(() => {
+        voice.endTimeoutId = null;
+        this.cleanupVoice(soundId, voice);
       }, 450);
     });
 
     audio.addEventListener('error', (err) => {
       console.error('Audio playback error:', err);
-      this.onStop(soundId);
-      this.cleanup(soundId);
+      this.cleanupVoice(soundId, voice);
     });
 
     audio.play().catch((err) => {
-      if (!activeItem.isStopped) {
+      if (!voice.isStopped) {
         console.warn('Audio playback prevented or failed:', err);
       }
-      this.onStop(soundId);
-      this.cleanup(soundId);
+      this.cleanupVoice(soundId, voice);
     });
   }
 
-  stop(soundId) {
-    const item = this.activeAudios.get(soundId);
-    if (item) {
-      item.isStopped = true;
-      if (item.endTimeoutId) {
-        clearTimeout(item.endTimeoutId);
-        item.endTimeoutId = null;
+  stopVoice(soundId, voice) {
+    voice.isStopped = true;
+    if (voice.endTimeoutId) {
+      clearTimeout(voice.endTimeoutId);
+      voice.endTimeoutId = null;
+    }
+    try {
+      voice.audio.pause();
+      voice.audio.removeAttribute('src');
+      voice.audio.load();
+    } catch (e) {}
+    const voices = this.activeAudios.get(soundId);
+    if (voices) {
+      voices.delete(voice);
+      if (voices.size === 0) {
+        this.activeAudios.delete(soundId);
+        this.latestVoiceIds.delete(soundId);
       }
-      try {
-        item.audio.pause();
-        item.audio.removeAttribute('src');
-        item.audio.load();
-      } catch (e) {}
+    }
+  }
+
+  cleanupVoice(soundId, voice) {
+    this.stopVoice(soundId, voice);
+    const voices = this.activeAudios.get(soundId);
+    if (!voices || voices.size === 0) {
+      this.onUpdate(soundId, { isPlaying: false, isLooping: false });
+    }
+  }
+
+  stop(soundId) {
+    const voices = this.activeAudios.get(soundId);
+    if (voices && voices.size > 0) {
+      const voiceList = Array.from(voices);
+      voiceList.forEach((voice) => {
+        voice.isStopped = true;
+        if (voice.endTimeoutId) {
+          clearTimeout(voice.endTimeoutId);
+          voice.endTimeoutId = null;
+        }
+        try {
+          voice.audio.pause();
+          voice.audio.removeAttribute('src');
+          voice.audio.load();
+        } catch (e) {}
+      });
+      this.activeAudios.delete(soundId);
+      this.latestVoiceIds.delete(soundId);
       this.onStop(soundId);
-      this.cleanup(soundId);
+      this.onUpdate(soundId, { isPlaying: false, isLooping: false });
     }
   }
 
   toggleLoop(sound) {
     const soundId = sound.id;
-    const item = this.activeAudios.get(soundId);
-
-    if (!item) {
-      // Not playing: start playing directly with loop enabled
-      this.play(sound, true);
-      return { isPlaying: true, isLooping: true };
+    if (this.isLooping(soundId)) {
+      this.stop(soundId);
+      return { isPlaying: false, isLooping: false };
     }
 
-    // Already playing: toggle loop state
-    const newLoop = !item.isLooping;
-    item.isLooping = newLoop;
-    item.audio.loop = newLoop;
-    this.onLoopToggle(soundId, newLoop);
-    this.onUpdate(soundId, { isPlaying: true, isLooping: newLoop });
-    return { isPlaying: true, isLooping: newLoop };
-  }
-
-  cleanup(soundId) {
-    const item = this.activeAudios.get(soundId);
-    if (item) {
-      item.isStopped = true;
-      if (item.endTimeoutId) {
-        clearTimeout(item.endTimeoutId);
-        item.endTimeoutId = null;
-      }
-      try {
-        item.audio.pause();
-      } catch (e) {}
-      this.activeAudios.delete(soundId);
-    }
-    this.onUpdate(soundId, { isPlaying: false, isLooping: false });
+    this.play(sound, true);
+    return { isPlaying: true, isLooping: true };
   }
 
   stopAll() {
-    const items = Array.from(this.activeAudios.values());
-    items.forEach((item) => {
-      item.isStopped = true;
-      if (item.endTimeoutId) {
-        clearTimeout(item.endTimeoutId);
-        item.endTimeoutId = null;
-      }
-      try {
-        item.audio.pause();
-        item.audio.removeAttribute('src');
-        item.audio.load();
-      } catch (e) {}
+    const entries = Array.from(this.activeAudios.entries());
+    entries.forEach(([soundId, voices]) => {
+      voices.forEach((voice) => {
+        voice.isStopped = true;
+        if (voice.endTimeoutId) {
+          clearTimeout(voice.endTimeoutId);
+          voice.endTimeoutId = null;
+        }
+        try {
+          voice.audio.pause();
+          voice.audio.removeAttribute('src');
+          voice.audio.load();
+        } catch (e) {}
+      });
     });
     const ids = Array.from(this.activeAudios.keys());
     this.activeAudios.clear();
+    this.latestVoiceIds.clear();
     this.onStopAll();
     ids.forEach((id) => {
       this.onUpdate(id, { isPlaying: false, isLooping: false });

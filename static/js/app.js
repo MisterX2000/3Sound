@@ -302,41 +302,57 @@
       }
     },
 
-    // Instant click: play or stop (zero latency)
+    // Stop all voices of a specific sound
+    stopSound(soundId) {
+      this.playingIds = this.playingIds.filter((id) => id !== soundId);
+      this.loopingIds = this.loopingIds.filter((id) => id !== soundId);
+      if (this.audio) {
+        this.audio.stop(soundId);
+      }
+    },
+
+    // Instant click: rapid trigger (polyphony) in overlap mode, or solo toggle
     handleSoundCardClick(sound, event) {
       if (event && event.currentTarget && typeof event.currentTarget.blur === 'function') {
         event.currentTarget.blur();
       }
-      if (this.isPlaying(sound.id)) {
-        this.playingIds = this.playingIds.filter((id) => id !== sound.id);
-        this.loopingIds = this.loopingIds.filter((id) => id !== sound.id);
-        this.audio.stop(sound.id);
-      } else {
-        if (!this.allowOverlap) {
-          this.playingIds = [sound.id];
-          this.loopingIds = [];
-        } else if (!this.playingIds.includes(sound.id)) {
-          this.playingIds = [...this.playingIds, sound.id];
-        }
-        this.audio.play(sound, false);
+
+      // If active looping sound, clicking the card stops it
+      if (this.isLooping(sound.id)) {
+        this.stopSound(sound.id);
+        return;
       }
+
+      // If Solo mode (overlap disabled) and already playing: stop it
+      if (!this.allowOverlap && this.isPlaying(sound.id)) {
+        this.stopSound(sound.id);
+        return;
+      }
+
+      // Rapid trigger (overlap enabled) or initial play
+      if (!this.allowOverlap) {
+        this.playingIds = [sound.id];
+        this.loopingIds = [];
+      } else if (!this.playingIds.includes(sound.id)) {
+        this.playingIds = [...this.playingIds, sound.id];
+      }
+      this.audio.play(sound, false);
     },
 
     toggleSoundLoop(sound) {
       const res = this.audio.toggleLoop(sound);
-      if (res && res.isPlaying) {
+      if (res && res.isLooping) {
         if (!this.playingIds.includes(sound.id)) {
           this.playingIds = this.allowOverlap ? [...this.playingIds, sound.id] : [sound.id];
         }
-      }
-      if (res && res.isLooping) {
         if (!this.loopingIds.includes(sound.id)) {
           this.loopingIds = [...this.loopingIds, sound.id];
         }
         this.showToast(`🔁 Looping enabled: ${sound.title}`);
       } else {
+        this.playingIds = this.playingIds.filter((id) => id !== sound.id);
         this.loopingIds = this.loopingIds.filter((id) => id !== sound.id);
-        this.showToast(`Loop disabled: ${sound.title}`);
+        this.showToast(`Loop stopped: ${sound.title}`);
       }
     },
 
