@@ -148,7 +148,117 @@ def main():
         "Success Chord",
     )
 
+    # 8. Ambient - 10s Ambient Drone
+    def drone_10s_fn(t, dur):
+        fade_in = min(1.0, t / 1.0)
+        fade_out = min(1.0, max(0.0, (dur - t) / 1.5))
+        env = fade_in * fade_out
+        lfo = 1.0 + 0.12 * math.sin(2 * math.pi * 0.4 * t)
+        val = (
+            0.35 * math.sin(2 * math.pi * 220.00 * t)  # A3
+            + 0.25 * math.sin(2 * math.pi * 277.18 * t)  # C#4
+            + 0.25 * math.sin(2 * math.pi * 329.63 * t)  # E4
+            + 0.15 * math.sin(2 * math.pi * 440.00 * t)  # A4
+        )
+        return val * env * lfo
+
+    generate_wav(SOUNDS_DIR / "Ambient" / "ambient_drone_10s.wav", 10.0, drone_10s_fn)
+    create_svg(
+        SOUNDS_DIR / "Ambient" / "ambient_drone_10s.svg",
+        "#6366f1",
+        '<path d="M2 12h3l2-6 4 12 4-8 2 5 2-3h3"></path>',
+        "Ambient Drone (10s)",
+    )
+
+    # 9. General - 10s Metronome / Clock Ticks
+    def metronome_10s_fn(t, dur):
+        frac = t % 1.0
+        if frac < 0.04:
+            is_final = t >= 9.0
+            freq = 1760.0 if is_final else 880.0
+            click_env = math.exp(-frac * 90)
+            return 0.45 * math.sin(2 * math.pi * freq * frac) * click_env
+        return 0.0
+
+    generate_wav(SOUNDS_DIR / "General" / "metronome_10s.wav", 10.0, metronome_10s_fn)
+    create_svg(
+        SOUNDS_DIR / "General" / "metronome_10s.svg",
+        "#8b5cf6",
+        '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+        "Metronome (10s)",
+    )
+
+    # 10. Ambient - 30s Ocean Waves
+    def ocean_30s_fn(t, dur):
+        fade_in = min(1.0, t / 2.0)
+        fade_out = min(1.0, max(0.0, (dur - t) / 2.5))
+        env = fade_in * fade_out
+        swell = (math.sin(2 * math.pi * (t / 7.0)) + 1.0) * 0.5
+        noise = (
+            math.sin(1237 * t)
+            + math.sin(2351 * t)
+            + math.sin(3499 * t)
+            + math.sin(4721 * t)
+            + math.sin(5867 * t)
+            + math.sin(7109 * t)
+        ) / 6.0
+        rumble = 0.25 * math.sin(2 * math.pi * 55.0 * t) + 0.15 * math.sin(
+            2 * math.pi * 82.4 * t
+        )
+        return ((noise * (0.15 + 0.35 * swell)) + (rumble * swell)) * env
+
+    generate_wav(SOUNDS_DIR / "Ambient" / "ocean_waves_30s.wav", 30.0, ocean_30s_fn)
+    create_svg(
+        SOUNDS_DIR / "Ambient" / "ocean_waves_30s.svg",
+        "#0284c7",
+        '<path d="M2 13c2.5-3 5-3 7.5 0s5 3 7.5 0 5-3 7 0"></path><path d="M2 17c2.5-3 5-3 7.5 0s5 3 7.5 0 5-3 7 0"></path>',
+        "Ocean Waves (30s)",
+    )
+
+    # 11. Ambient - 30s Space Melody
+    chords = [
+        [261.63, 329.63, 392.00, 523.25],  # Cmaj
+        [220.00, 261.63, 329.63, 440.00],  # Am
+        [174.61, 220.00, 261.63, 349.23],  # Fmaj
+        [196.00, 246.94, 293.66, 392.00],  # Gmaj
+        [164.81, 196.00, 246.94, 329.63],  # Em
+        [130.81, 196.00, 261.63, 392.00],  # Cmaj resolve
+    ]
+
+    def space_30s_fn(t, dur):
+        fade_in = min(1.0, t / 1.5)
+        fade_out = min(1.0, max(0.0, (dur - t) / 2.0))
+        master_env = fade_in * fade_out
+
+        chord_idx = min(len(chords) - 1, int(t / 5.0))
+        current_chord = chords[chord_idx]
+
+        sub_t = t % 5.0
+        note_idx = int(sub_t / 0.625) % len(current_chord)
+        note_freq = current_chord[note_idx]
+        note_phase = sub_t % 0.625
+        note_env = math.exp(-note_phase * 4.5)
+
+        bell = 0.35 * math.sin(2 * math.pi * note_freq * t) * note_env
+        bass = 0.18 * math.sin(2 * math.pi * (current_chord[0] * 0.5) * t)
+
+        return (bell + bass) * master_env
+
+    generate_wav(SOUNDS_DIR / "Ambient" / "space_melody_30s.wav", 30.0, space_30s_fn)
+    create_svg(
+        SOUNDS_DIR / "Ambient" / "space_melody_30s.svg",
+        "#ec4899",
+        '<path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>',
+        "Space Melody (30s)",
+    )
+
     # Folder Covers for Folder View
+    create_svg(
+        SOUNDS_DIR / "Ambient" / "cover.svg",
+        "#0f766e",
+        '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>',
+        "AMBIENT",
+    )
     create_svg(
         SOUNDS_DIR / "Alerts" / "cover.svg",
         "#ea580c",
