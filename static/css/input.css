@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Deferred rendering optimizations from Modern Web Guidance */
+.sound-card-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 180px;
+}

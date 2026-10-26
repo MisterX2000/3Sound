@@ -16,12 +16,15 @@
       toastMessage: null,
       toastTimeout: null,
 
+      // Progressive rendering limit for large libraries
+      renderLimit: 80,
+      categoryCountsMap: { All: 0 },
+
       // Reactive playback states: soundId arrays for instant reactivity
       playingIds: [],
       loopingIds: [],
-      progressMap: {},
-      playback: {},
       audio: null,
+      infiniteScrollObserver: null,
 
     init() {
       // Restore persisted settings
@@ -48,11 +51,18 @@
         this.allowOverlap = savedOverlap === 'true';
       }
 
-      // Initialize audio engine
+      // Initialize audio engine with direct DOM progress updates (zero reactive churn)
       this.audio = new AudioManager({
         volume: this.masterVolume,
         muted: this.isMuted,
         allowOverlap: this.allowOverlap,
+        onProgress: (soundId, pct) => {
+          const safeId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(soundId) : soundId.replace(/["\\]/g, '\\$&');
+          const bars = document.querySelectorAll(`[data-progress-id="${safeId}"]`);
+          bars.forEach((el) => {
+            el.style.width = pct + '%';
+          });
+        },
         onUpdate: (soundId, state) => {
           if (state.isPlaying) {
             if (!this.playingIds.includes(soundId)) {
@@ -69,9 +79,6 @@
           } else {
             this.loopingIds = this.loopingIds.filter((id) => id !== soundId);
           }
-
-          this.progressMap = { ...this.progressMap, [soundId]: state.progress || 0 };
-          this.playback = { ...this.playback, [soundId]: state };
         }
       });
 
@@ -79,6 +86,11 @@
       this.syncFromHash(window.location.hash);
       window.addEventListener('hashchange', () => {
         this.syncFromHash(window.location.hash);
+      });
+
+      // Reset render limit when search changes
+      this.$watch('searchQuery', () => {
+        this.renderLimit = 80;
       });
 
       // Global keyboard shortcuts
@@ -106,8 +118,36 @@
         });
       }
 
+      // Setup infinite scroll observer
+      this.setupInfiniteScroll();
+
       // Load sounds from API
       this.loadSounds();
+    },
+
+    setupInfiniteScroll() {
+      if (typeof IntersectionObserver === 'undefined') return;
+      this.infiniteScrollObserver = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            this.loadMore();
+          }
+        },
+        { rootMargin: '300px' }
+      );
+
+      this.$nextTick(() => {
+        const sentinel = document.getElementById('infinite-scroll-sentinel');
+        if (sentinel && this.infiniteScrollObserver) {
+          this.infiniteScrollObserver.observe(sentinel);
+        }
+      });
+    },
+
+    loadMore() {
+      if (this.hasMoreFlatSounds) {
+        this.renderLimit += 60;
+      }
     },
 
     showToast(msg, duration = 2500) {
@@ -126,9 +166,11 @@
       if (params.has('folder')) {
         this.viewMode = 'folder';
         this.currentFolder = params.get('folder') || '';
+        this.renderLimit = 80;
       } else if (params.has('category')) {
         this.viewMode = 'flat';
         this.activeCategory = params.get('category') || 'All';
+        this.renderLimit = 80;
       }
     },
 
@@ -149,17 +191,26 @@
 
     setViewMode(mode) {
       this.viewMode = mode;
+      this.renderLimit = 80;
       localStorage.setItem('soundboard_view_mode', mode);
       this.updateHash();
+      this.$nextTick(() => {
+        const sentinel = document.getElementById('infinite-scroll-sentinel');
+        if (sentinel && this.infiniteScrollObserver) {
+          this.infiniteScrollObserver.observe(sentinel);
+        }
+      });
     },
 
     selectCategory(cat) {
       this.activeCategory = cat || 'All';
+      this.renderLimit = 80;
       this.updateHash();
     },
 
     openFolder(path) {
       this.currentFolder = path || '';
+      this.renderLimit = 80;
       this.updateHash();
     },
 
@@ -203,6 +254,14 @@
         this.categories = ['All', ...(data.categories || [])];
         this.folders = data.folders || {};
 
+        // Precompute category counts map once in O(N)
+        const counts = { All: this.sounds.length };
+        for (let i = 0; i < this.sounds.length; i++) {
+          const c = this.sounds[i].category;
+          counts[c] = (counts[c] || 0) + 1;
+        }
+        this.categoryCountsMap = counts;
+
         if (this.currentFolder && !this.folders[this.currentFolder]) {
           this.currentFolder = '';
         }
@@ -219,6 +278,12 @@
       } finally {
         this.isLoading = false;
         this.isRescanning = false;
+        this.$nextTick(() => {
+          const sentinel = document.getElementById('infinite-scroll-sentinel');
+          if (sentinel && this.infiniteScrollObserver) {
+            this.infiniteScrollObserver.observe(sentinel);
+          }
+        });
       }
     },
 
@@ -263,8 +328,6 @@
     stopAllSounds() {
       this.playingIds = [];
       this.loopingIds = [];
-      this.progressMap = {};
-      this.playback = {};
       if (this.audio) {
         this.audio.stopAll();
       }
@@ -274,6 +337,9 @@
         }
         document.querySelectorAll('.sound-card').forEach((el) => {
           if (typeof el.blur === 'function') el.blur();
+        });
+        document.querySelectorAll('[data-progress-id]').forEach((el) => {
+          el.style.width = '0%';
         });
       }
     },
@@ -286,10 +352,6 @@
       return this.loopingIds.includes(soundId);
     },
 
-    getProgress(soundId) {
-      return this.progressMap[soundId] || 0;
-    },
-
     formatTime(seconds) {
       if (!seconds || seconds <= 0) return '0:00';
       const totalSecs = Math.round(seconds);
@@ -300,11 +362,7 @@
 
     // --- Computed getters ---
     get categoryCounts() {
-      const counts = { All: this.sounds.length };
-      this.sounds.forEach((s) => {
-        counts[s.category] = (counts[s.category] || 0) + 1;
-      });
-      return counts;
+      return this.categoryCountsMap;
     },
 
     get filteredFlatSounds() {
@@ -321,13 +379,24 @@
       });
     },
 
+    get hasMoreFlatSounds() {
+      return this.filteredFlatSounds.length > this.renderLimit;
+    },
+
     get flatCategoryGroups() {
       const filtered = this.filteredFlatSounds;
+      const limit = this.renderLimit;
       const groups = {};
-      filtered.forEach((sound) => {
-        if (!groups[sound.category]) groups[sound.category] = [];
-        groups[sound.category].push(sound);
-      });
+      let count = 0;
+
+      for (let i = 0; i < filtered.length; i++) {
+        if (count >= limit) break;
+        const s = filtered[i];
+        if (!groups[s.category]) groups[s.category] = [];
+        groups[s.category].push(s);
+        count++;
+      }
+
       return Object.entries(groups).map(([name, soundList]) => ({
         name,
         sounds: soundList
@@ -367,6 +436,7 @@
         .map((p) => this.folders[p])
         .filter(Boolean);
       if (!query) return subs;
+      const matchingSounds = this.globalSearchResults;
       return subs.filter((f) => {
         const name = (f.name || '').toLowerCase();
         const path = (f.path || '').toLowerCase();
@@ -375,12 +445,8 @@
         }
         const fPath = f.path || '';
         const prefix = fPath ? `${fPath}/` : '';
-        return this.sounds.some(
-          (s) =>
-            (s.folder === fPath || (fPath && (s.folder || '').startsWith(prefix))) &&
-            ((s.title && s.title.toLowerCase().includes(query)) ||
-              (s.name && s.name.toLowerCase().includes(query)) ||
-              (s.filename && s.filename.toLowerCase().includes(query)))
+        return matchingSounds.some(
+          (s) => s.folder === fPath || (fPath && (s.folder || '').startsWith(prefix))
         );
       });
     },
@@ -424,12 +490,14 @@
 
     jumpToCategory(category) {
       this.activeCategory = category || 'All';
+      this.renderLimit = 80;
       this.updateHash();
     },
 
     jumpToFolder(folderPath) {
       this.viewMode = 'folder';
       this.currentFolder = folderPath || '';
+      this.renderLimit = 80;
       localStorage.setItem('soundboard_view_mode', 'folder');
       this.updateHash();
     },

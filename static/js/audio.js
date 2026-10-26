@@ -8,6 +8,7 @@ class AudioManager {
     this.isMuted = Boolean(options.muted);
     this.allowOverlap = options.allowOverlap ?? true;
     this.onUpdate = options.onUpdate || (() => {});
+    this.onProgress = options.onProgress || (() => {});
 
     // soundId -> { audio, endTimeoutId, sound, isLooping, progress, isStopped }
     this.activeAudios = new Map();
@@ -68,7 +69,7 @@ class AudioManager {
       if (audio.duration && audio.duration > 0) {
         const pct = Math.min(100, Math.max(0, (audio.currentTime / audio.duration) * 100));
         activeItem.progress = pct;
-        this.onUpdate(soundId, { isPlaying: true, isLooping: activeItem.isLooping, progress: pct });
+        this.onProgress(soundId, pct);
       }
     });
 
@@ -76,7 +77,7 @@ class AudioManager {
     audio.addEventListener('ended', () => {
       if (activeItem.isStopped) return;
       activeItem.progress = 100;
-      this.onUpdate(soundId, { isPlaying: true, isLooping: false, progress: 100 });
+      this.onProgress(soundId, 100);
 
       activeItem.endTimeoutId = setTimeout(() => {
         activeItem.endTimeoutId = null;
@@ -145,6 +146,7 @@ class AudioManager {
       } catch (e) {}
       this.activeAudios.delete(soundId);
     }
+    this.onProgress(soundId, 0);
     this.onUpdate(soundId, { isPlaying: false, isLooping: false, progress: 0 });
   }
 
@@ -165,6 +167,7 @@ class AudioManager {
     const ids = Array.from(this.activeAudios.keys());
     this.activeAudios.clear();
     ids.forEach((id) => {
+      this.onProgress(id, 0);
       this.onUpdate(id, { isPlaying: false, isLooping: false, progress: 0 });
     });
   }

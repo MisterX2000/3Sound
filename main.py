@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from mutagen import File as MutagenFile
@@ -249,6 +250,7 @@ except (OSError, RuntimeError) as exc:
 # FastAPI Application
 # ==========================================
 app = FastAPI(title="Soundboard")
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.mount("/media", StaticFiles(directory=SOUNDS_DIR), name="media")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
