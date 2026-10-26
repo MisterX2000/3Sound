@@ -70,7 +70,9 @@ class AudioManager {
     // Trigger GPU animation when audio actually starts playing through speaker output
     audio.addEventListener('playing', () => {
       if (activeItem.isStopped) return;
-      const duration = sound.duration && sound.duration > 0 ? sound.duration : audio.duration || 1;
+      const duration = audio.duration && !isNaN(audio.duration) && audio.duration > 0
+        ? audio.duration
+        : (sound.duration && sound.duration > 0 ? sound.duration : 1);
       this.onPlay(soundId, { duration, isLooping: activeItem.isLooping });
     });
 
@@ -88,7 +90,7 @@ class AudioManager {
       activeItem.endTimeoutId = setTimeout(() => {
         activeItem.endTimeoutId = null;
         this.cleanup(soundId);
-      }, 400);
+      }, 450);
     });
 
     audio.addEventListener('error', (err) => {

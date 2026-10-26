@@ -62,7 +62,7 @@
       transform-origin: left;
       transform: scaleX(0);
       opacity: 1;
-      transition: opacity 250ms ease;
+      transition: opacity 250ms ease-out;
       will-change: transform, opacity;
     }
     .progress-bar.is-animating {
@@ -78,7 +78,7 @@
       animation-play-state: paused;
     }
     .progress-bar.is-fading {
-      opacity: 0;
+      opacity: 0 !important;
     }
   </style>
 </head>

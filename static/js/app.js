@@ -348,11 +348,13 @@
           clearTimeout(bar._fadeTimeout);
           bar._fadeTimeout = null;
         }
+        bar.style.transition = 'none';
         bar.classList.remove('is-animating', 'is-looping', 'is-paused', 'is-fading');
         bar.style.transform = 'scaleX(0)';
-        bar.style.opacity = '1';
+        bar.style.opacity = '';
         // Force reflow to restart CSS animation cleanly
         void bar.offsetWidth;
+        bar.style.transition = '';
         bar.style.setProperty('--sound-duration', `${duration}s`);
         bar.classList.add('is-animating');
         if (isLooping) {
@@ -386,11 +388,14 @@
         bar._fadeTimeout = setTimeout(() => {
           bar.classList.add('is-fading');
           bar._fadeTimeout = setTimeout(() => {
+            bar.style.transition = 'none';
             bar.classList.remove('is-animating', 'is-looping', 'is-paused', 'is-fading');
             bar.style.transform = 'scaleX(0)';
-            bar.style.opacity = '1';
+            bar.style.opacity = '';
+            void bar.offsetWidth;
+            bar.style.transition = '';
             bar._fadeTimeout = null;
-          }, 250);
+          }, 270);
         }, 150);
       });
     },
@@ -401,25 +406,31 @@
         // Pause in place immediately and fade out over 250ms without backward rewind
         bar.classList.add('is-paused', 'is-fading');
         bar._fadeTimeout = setTimeout(() => {
+          bar.style.transition = 'none';
           bar.classList.remove('is-animating', 'is-looping', 'is-paused', 'is-fading');
           bar.style.transform = 'scaleX(0)';
-          bar.style.opacity = '1';
+          bar.style.opacity = '';
+          void bar.offsetWidth;
+          bar.style.transition = '';
           bar._fadeTimeout = null;
-        }, 250);
+        }, 270);
       });
     },
 
     triggerProgressBarStopAll() {
       if (typeof document === 'undefined') return;
-      document.querySelectorAll('.progress-bar').forEach((bar) => {
+      document.querySelectorAll('.progress-bar.is-animating, .progress-bar.is-fading').forEach((bar) => {
         if (bar._fadeTimeout) clearTimeout(bar._fadeTimeout);
         bar.classList.add('is-paused', 'is-fading');
         bar._fadeTimeout = setTimeout(() => {
+          bar.style.transition = 'none';
           bar.classList.remove('is-animating', 'is-looping', 'is-paused', 'is-fading');
           bar.style.transform = 'scaleX(0)';
-          bar.style.opacity = '1';
+          bar.style.opacity = '';
+          void bar.offsetWidth;
+          bar.style.transition = '';
           bar._fadeTimeout = null;
-        }, 250);
+        }, 270);
       });
     },
 
