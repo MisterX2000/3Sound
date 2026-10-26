@@ -273,7 +273,10 @@ async def service_worker():
         return FileResponse(
             SW_JS,
             media_type="application/javascript",
-            headers={"Service-Worker-Allowed": "/"},
+            headers={
+                "Service-Worker-Allowed": "/",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            },
         )
     raise HTTPException(status_code=404, detail="sw.js not found")
 

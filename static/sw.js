@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soundboard-v8';
+const CACHE_NAME = 'soundboard-v9';
 const PRECACHE_ASSETS = [
   '/',
   '/static/manifest.json',
@@ -6,7 +6,9 @@ const PRECACHE_ASSETS = [
   '/static/vendor/tailwindcss.js',
   '/static/vendor/alpine.min.js',
   '/static/js/app.js',
-  '/static/js/audio.js'
+  '/static/js/audio.js',
+  '/static/js/app.js?v=0.1.2',
+  '/static/js/audio.js?v=0.1.2'
 ];
 
 // Install: precache application shell

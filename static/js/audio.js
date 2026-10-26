@@ -9,7 +9,7 @@ class AudioManager {
     this.allowOverlap = options.allowOverlap ?? true;
     this.onUpdate = options.onUpdate || (() => {});
 
-    // soundId -> { audio, endTimeoutId, sound, isLooping, progress }
+    // soundId -> { audio, endTimeoutId, sound, isLooping, progress, isStopped }
     this.activeAudios = new Map();
   }
 
@@ -58,13 +58,14 @@ class AudioManager {
       isStopped: false
     };
 
-    // Register active audio immediately to avoid race conditions with stop/stopAll
+    // Store immediately so stop() or stopAll() can immediately reach and cancel this audio
     this.activeAudios.set(soundId, activeItem);
     this.onUpdate(soundId, { isPlaying: true, isLooping: activeItem.isLooping, progress: 0 });
 
     // Native timeupdate listener with smooth progress calculation
     audio.addEventListener('timeupdate', () => {
-      if (!activeItem.isStopped && audio.duration && audio.duration > 0) {
+      if (activeItem.isStopped || audio.paused) return;
+      if (audio.duration && audio.duration > 0) {
         const pct = Math.min(100, Math.max(0, (audio.currentTime / audio.duration) * 100));
         activeItem.progress = pct;
         this.onUpdate(soundId, { isPlaying: true, isLooping: activeItem.isLooping, progress: pct });
@@ -106,7 +107,8 @@ class AudioManager {
       }
       try {
         item.audio.pause();
-        item.audio.currentTime = 0;
+        item.audio.removeAttribute('src');
+        item.audio.load();
       } catch (e) {}
       this.cleanup(soundId);
     }
@@ -133,19 +135,38 @@ class AudioManager {
   cleanup(soundId) {
     const item = this.activeAudios.get(soundId);
     if (item) {
+      item.isStopped = true;
       if (item.endTimeoutId) {
         clearTimeout(item.endTimeoutId);
         item.endTimeoutId = null;
       }
+      try {
+        item.audio.pause();
+      } catch (e) {}
       this.activeAudios.delete(soundId);
     }
     this.onUpdate(soundId, { isPlaying: false, isLooping: false, progress: 0 });
   }
 
   stopAll() {
+    const items = Array.from(this.activeAudios.values());
+    items.forEach((item) => {
+      item.isStopped = true;
+      if (item.endTimeoutId) {
+        clearTimeout(item.endTimeoutId);
+        item.endTimeoutId = null;
+      }
+      try {
+        item.audio.pause();
+        item.audio.removeAttribute('src');
+        item.audio.load();
+      } catch (e) {}
+    });
     const ids = Array.from(this.activeAudios.keys());
-    ids.forEach((id) => this.stop(id));
     this.activeAudios.clear();
+    ids.forEach((id) => {
+      this.onUpdate(id, { isPlaying: false, isLooping: false, progress: 0 });
+    });
   }
 }
 

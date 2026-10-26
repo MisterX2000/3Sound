@@ -16,7 +16,10 @@
       toastMessage: null,
       toastTimeout: null,
 
-      // Reactive playback states: soundId -> { isPlaying, isLooping, progress }
+      // Reactive playback states: soundId arrays for instant reactivity
+      playingIds: [],
+      loopingIds: [],
+      progressMap: {},
       playback: {},
       audio: null,
 
@@ -51,6 +54,23 @@
         muted: this.isMuted,
         allowOverlap: this.allowOverlap,
         onUpdate: (soundId, state) => {
+          if (state.isPlaying) {
+            if (!this.playingIds.includes(soundId)) {
+              this.playingIds = this.allowOverlap ? [...this.playingIds, soundId] : [soundId];
+            }
+          } else {
+            this.playingIds = this.playingIds.filter((id) => id !== soundId);
+          }
+
+          if (state.isLooping) {
+            if (!this.loopingIds.includes(soundId)) {
+              this.loopingIds = [...this.loopingIds, soundId];
+            }
+          } else {
+            this.loopingIds = this.loopingIds.filter((id) => id !== soundId);
+          }
+
+          this.progressMap = { ...this.progressMap, [soundId]: state.progress || 0 };
           this.playback = { ...this.playback, [soundId]: state };
         }
       });
@@ -164,6 +184,12 @@
       }
       localStorage.setItem('soundboard_overlap', String(this.allowOverlap));
       this.audio.setAllowOverlap(this.allowOverlap);
+      if (!this.allowOverlap && this.playingIds.length > 1) {
+        const keepId = this.playingIds[this.playingIds.length - 1];
+        const toStop = this.playingIds.slice(0, -1);
+        toStop.forEach((id) => this.audio.stop(id));
+        this.playingIds = [keepId];
+      }
     },
 
     async loadSounds(forceReload = false) {
@@ -202,25 +228,46 @@
         event.currentTarget.blur();
       }
       if (this.isPlaying(sound.id)) {
+        this.playingIds = this.playingIds.filter((id) => id !== sound.id);
+        this.loopingIds = this.loopingIds.filter((id) => id !== sound.id);
         this.audio.stop(sound.id);
-        this.playback = { ...this.playback, [sound.id]: { isPlaying: false, isLooping: false, progress: 0 } };
       } else {
+        if (!this.allowOverlap) {
+          this.playingIds = [sound.id];
+          this.loopingIds = [];
+        } else if (!this.playingIds.includes(sound.id)) {
+          this.playingIds = [...this.playingIds, sound.id];
+        }
         this.audio.play(sound, false);
       }
     },
 
     toggleSoundLoop(sound) {
       const res = this.audio.toggleLoop(sound);
-      if (res.isLooping) {
+      if (res && res.isPlaying) {
+        if (!this.playingIds.includes(sound.id)) {
+          this.playingIds = this.allowOverlap ? [...this.playingIds, sound.id] : [sound.id];
+        }
+      }
+      if (res && res.isLooping) {
+        if (!this.loopingIds.includes(sound.id)) {
+          this.loopingIds = [...this.loopingIds, sound.id];
+        }
         this.showToast(`🔁 Looping enabled: ${sound.title}`);
       } else {
+        this.loopingIds = this.loopingIds.filter((id) => id !== sound.id);
         this.showToast(`Loop disabled: ${sound.title}`);
       }
     },
 
     stopAllSounds() {
-      this.audio.stopAll();
+      this.playingIds = [];
+      this.loopingIds = [];
+      this.progressMap = {};
       this.playback = {};
+      if (this.audio) {
+        this.audio.stopAll();
+      }
       if (typeof document !== 'undefined') {
         if (document.activeElement && typeof document.activeElement.blur === 'function') {
           document.activeElement.blur();
@@ -232,15 +279,15 @@
     },
 
     isPlaying(soundId) {
-      return Boolean(this.playback[soundId]?.isPlaying);
+      return this.playingIds.includes(soundId);
     },
 
     isLooping(soundId) {
-      return Boolean(this.playback[soundId]?.isLooping);
+      return this.loopingIds.includes(soundId);
     },
 
     getProgress(soundId) {
-      return this.playback[soundId]?.progress || 0;
+      return this.progressMap[soundId] || 0;
     },
 
     formatTime(seconds) {
