@@ -30,20 +30,31 @@ A modern, fast, and responsive web soundboard built with **Python (FastAPI)**, *
 
 ## 🚀 How to Run
 
-### Option 1: Docker Compose (Recommended)
+### Option 1: Docker Compose (Pre-built Image)
 
-1. Ensure Docker is running.
-2. Start the container:
+Run immediately using the pre-built multi-arch image from GitHub Container Registry:
+
+1. Start the container:
    ```bash
-   docker compose up --build
+   docker compose up -d
    ```
-3. Open **[http://localhost:8000](http://localhost:8000)** in your browser.
+2. Open **[http://localhost:8000](http://localhost:8000)** in your browser.
 
 > Any files you add, remove, or modify inside `./sounds/` on your computer are reflected live in the container! Click the refresh icon in the web app to rescan anytime.
 
 ---
 
-### Option 2: Running Locally with `uv`
+### Option 2: Docker Compose (Build from Source)
+
+If you are modifying the backend code or Dockerfile locally:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+---
+
+### Option 3: Running Locally with `uv`
 
 1. **Run the soundboard**:
    ```bash

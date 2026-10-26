@@ -1,8 +1,6 @@
-version: "3.8"
-
 services:
   soundboard:
-    build: .
+    image: ghcr.io/misterx2000/3sound:latest
     container_name: soundboard
     ports:
       - "8000:8000"
