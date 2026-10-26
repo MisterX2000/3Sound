@@ -336,7 +336,48 @@
       );
     },
 
+    get globalSearchResults() {
+      const query = this.searchQuery.toLowerCase().trim();
+      if (!query) return [];
+      return this.sounds.filter(
+        (s) =>
+          (s.title && s.title.toLowerCase().includes(query)) ||
+          (s.name && s.name.toLowerCase().includes(query)) ||
+          (s.category && s.category.toLowerCase().includes(query)) ||
+          (s.filename && s.filename.toLowerCase().includes(query))
+      );
+    },
+
+    get hasLocalResults() {
+      if (!this.searchQuery.trim()) return true;
+      if (this.viewMode === 'flat') {
+        return this.filteredFlatSounds.length > 0;
+      } else {
+        return this.displayedSubfolders.length > 0 || this.directFolderSounds.length > 0;
+      }
+    },
+
+    get showGlobalFallback() {
+      return Boolean(this.searchQuery.trim() && !this.hasLocalResults && this.globalSearchResults.length > 0);
+    },
+
+    jumpToCategory(category) {
+      this.activeCategory = category || 'All';
+      this.updateHash();
+    },
+
+    jumpToFolder(folderPath) {
+      this.viewMode = 'folder';
+      this.currentFolder = folderPath || '';
+      localStorage.setItem('soundboard_view_mode', 'folder');
+      this.updateHash();
+    },
+
     get displayedCountBadge() {
+      if (this.showGlobalFallback) {
+        const count = this.globalSearchResults.length;
+        return `${count} global match${count === 1 ? '' : 'es'}`;
+      }
       if (this.viewMode === 'flat') {
         const count = this.filteredFlatSounds.length;
         return `${count} sound${count === 1 ? '' : 's'}`;
