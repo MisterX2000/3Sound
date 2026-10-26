@@ -75,11 +75,20 @@ def compile_tailwind() -> bool:
     print("🎨 Compiling static/css/tailwind.min.css...")
     try:
         subprocess.run(
-            [npx_path, "-y", "tailwindcss@3", "-i", str(input_css), "-o", str(output_css), "--minify"],
+            [
+                npx_path,
+                "-y",
+                "tailwindcss@3",
+                "-i",
+                str(input_css),
+                "-o",
+                str(output_css),
+                "--minify",
+            ],
             cwd=BASE_DIR,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         size_kb = output_css.stat().st_size / 1024
         print(f"   ✅ Compiled {output_css.name} ({size_kb:.1f} KB)")
@@ -108,9 +117,7 @@ def main():
         print("\n🎉 All vendor files & styles updated successfully!")
         return 0
     else:
-        print(
-            f"\n⚠️  Updated {success_count}/{total} vendor files. Some steps failed."
-        )
+        print(f"\n⚠️  Updated {success_count}/{total} vendor files. Some steps failed.")
         return 1
 
 
