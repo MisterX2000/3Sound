@@ -51,17 +51,28 @@
         this.allowOverlap = savedOverlap === 'true';
       }
 
-      // Initialize audio engine with direct DOM progress updates (zero reactive churn)
+      // Initialize audio engine with GPU-accelerated CSS progress bar animation
       this.audio = new AudioManager({
         volume: this.masterVolume,
         muted: this.isMuted,
         allowOverlap: this.allowOverlap,
-        onProgress: (soundId, pct) => {
-          const safeId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(soundId) : soundId.replace(/["\\]/g, '\\$&');
-          const bars = document.querySelectorAll(`[data-progress-id="${safeId}"]`);
-          bars.forEach((el) => {
-            el.style.width = pct + '%';
-          });
+        onPlay: (soundId, { duration, isLooping }) => {
+          this.triggerProgressBarPlay(soundId, duration, isLooping);
+        },
+        onLoopCycle: (soundId) => {
+          this.triggerProgressBarLoopCycle(soundId);
+        },
+        onLoopToggle: (soundId, isLooping) => {
+          this.triggerProgressBarLoopToggle(soundId, isLooping);
+        },
+        onEnd: (soundId) => {
+          this.triggerProgressBarEnd(soundId);
+        },
+        onStop: (soundId) => {
+          this.triggerProgressBarStop(soundId);
+        },
+        onStopAll: () => {
+          this.triggerProgressBarStopAll();
         },
         onUpdate: (soundId, state) => {
           if (state.isPlaying) {
@@ -325,6 +336,93 @@
       }
     },
 
+    getSafeBars(soundId) {
+      if (typeof document === 'undefined') return [];
+      const safeId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(soundId) : soundId.replace(/["\\]/g, '\\$&');
+      return document.querySelectorAll(`[data-progress-id="${safeId}"]`);
+    },
+
+    triggerProgressBarPlay(soundId, duration, isLooping) {
+      this.getSafeBars(soundId).forEach((bar) => {
+        if (bar._fadeTimeout) {
+          clearTimeout(bar._fadeTimeout);
+          bar._fadeTimeout = null;
+        }
+        bar.classList.remove('is-animating', 'is-looping', 'is-paused', 'is-fading');
+        bar.style.transform = 'scaleX(0)';
+        bar.style.opacity = '1';
+        // Force reflow to restart CSS animation cleanly
+        void bar.offsetWidth;
+        bar.style.setProperty('--sound-duration', `${duration}s`);
+        bar.classList.add('is-animating');
+        if (isLooping) {
+          bar.classList.add('is-looping');
+        }
+      });
+    },
+
+    triggerProgressBarLoopToggle(soundId, isLooping) {
+      this.getSafeBars(soundId).forEach((bar) => {
+        if (isLooping) {
+          bar.classList.add('is-looping');
+        } else {
+          bar.classList.remove('is-looping');
+        }
+      });
+    },
+
+    triggerProgressBarLoopCycle(soundId) {
+      this.getSafeBars(soundId).forEach((bar) => {
+        bar.classList.remove('is-animating');
+        void bar.offsetWidth;
+        bar.classList.add('is-animating', 'is-looping');
+      });
+    },
+
+    triggerProgressBarEnd(soundId) {
+      this.getSafeBars(soundId).forEach((bar) => {
+        if (bar._fadeTimeout) clearTimeout(bar._fadeTimeout);
+        // Hold full bar for 150ms before smoothly fading out over 250ms
+        bar._fadeTimeout = setTimeout(() => {
+          bar.classList.add('is-fading');
+          bar._fadeTimeout = setTimeout(() => {
+            bar.classList.remove('is-animating', 'is-looping', 'is-paused', 'is-fading');
+            bar.style.transform = 'scaleX(0)';
+            bar.style.opacity = '1';
+            bar._fadeTimeout = null;
+          }, 250);
+        }, 150);
+      });
+    },
+
+    triggerProgressBarStop(soundId) {
+      this.getSafeBars(soundId).forEach((bar) => {
+        if (bar._fadeTimeout) clearTimeout(bar._fadeTimeout);
+        // Pause in place immediately and fade out over 250ms without backward rewind
+        bar.classList.add('is-paused', 'is-fading');
+        bar._fadeTimeout = setTimeout(() => {
+          bar.classList.remove('is-animating', 'is-looping', 'is-paused', 'is-fading');
+          bar.style.transform = 'scaleX(0)';
+          bar.style.opacity = '1';
+          bar._fadeTimeout = null;
+        }, 250);
+      });
+    },
+
+    triggerProgressBarStopAll() {
+      if (typeof document === 'undefined') return;
+      document.querySelectorAll('.progress-bar').forEach((bar) => {
+        if (bar._fadeTimeout) clearTimeout(bar._fadeTimeout);
+        bar.classList.add('is-paused', 'is-fading');
+        bar._fadeTimeout = setTimeout(() => {
+          bar.classList.remove('is-animating', 'is-looping', 'is-paused', 'is-fading');
+          bar.style.transform = 'scaleX(0)';
+          bar.style.opacity = '1';
+          bar._fadeTimeout = null;
+        }, 250);
+      });
+    },
+
     stopAllSounds() {
       this.playingIds = [];
       this.loopingIds = [];
@@ -337,9 +435,6 @@
         }
         document.querySelectorAll('.sound-card').forEach((el) => {
           if (typeof el.blur === 'function') el.blur();
-        });
-        document.querySelectorAll('[data-progress-id]').forEach((el) => {
-          el.style.width = '0%';
         });
       }
     },

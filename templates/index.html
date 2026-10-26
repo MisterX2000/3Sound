@@ -25,8 +25,8 @@
   <link rel="stylesheet" href="/static/css/tailwind.min.css">
 
   <!-- Soundboard Logic & Vendored Alpine.js -->
-  <script src="/static/js/audio.js?v=0.2.0"></script>
-  <script src="/static/js/app.js?v=0.2.0"></script>
+  <script src="/static/js/audio.js?v=0.3.0"></script>
+  <script src="/static/js/app.js?v=0.3.0"></script>
   <script defer src="/static/vendor/alpine.min.js"></script>
 
   <style>
@@ -51,6 +51,34 @@
     .sound-card-deferred {
       content-visibility: auto;
       contain-intrinsic-size: auto none auto 180px;
+    }
+
+    /* GPU Compositor Progress Bar Animation */
+    @keyframes sound-progress {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+    .progress-bar {
+      transform-origin: left;
+      transform: scaleX(0);
+      opacity: 1;
+      transition: opacity 250ms ease;
+      will-change: transform, opacity;
+    }
+    .progress-bar.is-animating {
+      animation-name: sound-progress;
+      animation-duration: var(--sound-duration, 1s);
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;
+    }
+    .progress-bar.is-looping {
+      animation-iteration-count: infinite;
+    }
+    .progress-bar.is-paused {
+      animation-play-state: paused;
+    }
+    .progress-bar.is-fading {
+      opacity: 0;
     }
   </style>
 </head>
@@ -442,12 +470,11 @@
                     </div>
                   </div>
 
-                  <!-- Smooth Audio Progress Bar with direct DOM data-progress-id -->
+                  <!-- GPU-Accelerated Audio Progress Bar -->
                   <div class="progress-bar-container w-full h-1 bg-slate-800 overflow-hidden relative">
                     <div 
                       :data-progress-id="sound.id"
-                      class="progress-bar h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none transition-all duration-300 ease-linear"
-                      style="width: 0%"
+                      class="progress-bar w-full h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none"
                     ></div>
                   </div>
                 </div>
@@ -543,12 +570,11 @@
                     </div>
                   </div>
 
-                  <!-- Smooth Audio Progress Bar with direct DOM data-progress-id -->
+                  <!-- GPU-Accelerated Audio Progress Bar -->
                   <div class="progress-bar-container w-full h-1 bg-slate-800 overflow-hidden relative">
                     <div 
                       :data-progress-id="sound.id"
-                      class="progress-bar h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none transition-all duration-300 ease-linear"
-                      style="width: 0%"
+                      class="progress-bar w-full h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none"
                     ></div>
                   </div>
                 </div>
@@ -732,12 +758,11 @@
                     </div>
                   </div>
 
-                  <!-- Smooth Audio Progress Bar with direct DOM data-progress-id -->
+                  <!-- GPU-Accelerated Audio Progress Bar -->
                   <div class="progress-bar-container w-full h-1 bg-slate-800 overflow-hidden relative">
                     <div 
                       :data-progress-id="sound.id"
-                      class="progress-bar h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none transition-all duration-300 ease-linear"
-                      style="width: 0%"
+                      class="progress-bar w-full h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none"
                     ></div>
                   </div>
                 </div>
@@ -905,12 +930,11 @@
                   </div>
                 </div>
 
-                <!-- Smooth Audio Progress Bar with direct DOM data-progress-id -->
+                <!-- GPU-Accelerated Audio Progress Bar -->
                 <div class="progress-bar-container w-full h-1 bg-slate-800 overflow-hidden relative">
                   <div 
                     :data-progress-id="sound.id"
-                    class="progress-bar h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none transition-all duration-300 ease-linear"
-                    style="width: 0%"
+                    class="progress-bar w-full h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none"
                   ></div>
                 </div>
               </div>

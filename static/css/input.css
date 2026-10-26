@@ -7,3 +7,40 @@
   content-visibility: auto;
   contain-intrinsic-size: auto none auto 180px;
 }
+
+/* GPU Compositor Progress Bar Animation */
+@keyframes sound-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.progress-bar {
+  transform-origin: left;
+  transform: scaleX(0);
+  opacity: 1;
+  transition: opacity 250ms ease;
+  will-change: transform, opacity;
+}
+
+.progress-bar.is-animating {
+  animation-name: sound-progress;
+  animation-duration: var(--sound-duration, 1s);
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.progress-bar.is-looping {
+  animation-iteration-count: infinite;
+}
+
+.progress-bar.is-paused {
+  animation-play-state: paused;
+}
+
+.progress-bar.is-fading {
+  opacity: 0;
+}
