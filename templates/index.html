@@ -78,32 +78,32 @@
       <div class="flex flex-col md:flex-row items-center justify-between gap-4">
         
         <!-- Logo / Title & Stats -->
-        <div class="flex items-center justify-between w-full md:w-auto">
-          <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white">
+        <div class="flex items-center justify-between w-full md:w-auto gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
               </svg>
             </div>
-            <div>
-              <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                Soundboard
-                <span x-text="displayedCountBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700">
+            <div class="min-w-0">
+              <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <span class="whitespace-nowrap">Soundboard</span>
+                <span x-text="displayedCountBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700 whitespace-nowrap shrink-0">
                   0 sounds
                 </span>
               </h1>
-              <p class="text-xs text-slate-400 hidden sm:block">Click any button to play sound</p>
+              <p class="text-xs text-slate-400 hidden sm:block whitespace-nowrap">Click any button to play sound</p>
             </div>
           </div>
 
           <!-- Mobile Stop All shortcut -->
-          <button @click="stopAllSounds()" class="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition text-xs font-medium cursor-pointer">
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+          <button @click="stopAllSounds()" class="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition text-xs font-medium cursor-pointer whitespace-nowrap shrink-0">
+            <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
               <rect x="5" y="5" width="14" height="14" rx="2"></rect>
             </svg>
-            Stop
+            <span>Stop All</span>
           </button>
         </div>
 
@@ -193,9 +193,9 @@
           <button 
             @click="stopAllSounds()" 
             title="Stop all currently playing sounds (Esc)"
-            class="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 transition font-medium text-xs shadow-sm cursor-pointer"
+            class="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 transition font-medium text-xs shadow-sm cursor-pointer whitespace-nowrap shrink-0"
           >
-            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+            <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
               <rect x="5" y="5" width="14" height="14" rx="2"></rect>
             </svg>
             <span>Stop All</span>
@@ -289,7 +289,7 @@
 
         <!-- Overlap Toggle -->
         <label class="hidden sm:flex items-center gap-2 cursor-pointer text-xs text-slate-400 select-none whitespace-nowrap shrink-0">
-          <input type="checkbox" x-model="allowOverlap" @change="toggleOverlap()" class="sr-only peer">
+          <input type="checkbox" :checked="allowOverlap" @change="toggleOverlap($event.target.checked)" class="sr-only peer">
           <div class="w-7 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-600 relative"></div>
           <span class="text-slate-300">Overlap</span>
         </label>

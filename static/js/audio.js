@@ -54,12 +54,17 @@ class AudioManager {
       endTimeoutId: null,
       sound,
       isLooping: Boolean(startWithLoop),
-      progress: 0
+      progress: 0,
+      isStopped: false
     };
+
+    // Register active audio immediately to avoid race conditions with stop/stopAll
+    this.activeAudios.set(soundId, activeItem);
+    this.onUpdate(soundId, { isPlaying: true, isLooping: activeItem.isLooping, progress: 0 });
 
     // Native timeupdate listener with smooth progress calculation
     audio.addEventListener('timeupdate', () => {
-      if (audio.duration && audio.duration > 0) {
+      if (!activeItem.isStopped && audio.duration && audio.duration > 0) {
         const pct = Math.min(100, Math.max(0, (audio.currentTime / audio.duration) * 100));
         activeItem.progress = pct;
         this.onUpdate(soundId, { isPlaying: true, isLooping: activeItem.isLooping, progress: pct });
@@ -68,6 +73,7 @@ class AudioManager {
 
     // Ended event: ensure bar completes to 100%, hold for 350ms before reset
     audio.addEventListener('ended', () => {
+      if (activeItem.isStopped) return;
       activeItem.progress = 100;
       this.onUpdate(soundId, { isPlaying: true, isLooping: false, progress: 100 });
 
@@ -82,11 +88,10 @@ class AudioManager {
       this.cleanup(soundId);
     });
 
-    audio.play().then(() => {
-      this.activeAudios.set(soundId, activeItem);
-      this.onUpdate(soundId, { isPlaying: true, isLooping: activeItem.isLooping, progress: 0 });
-    }).catch((err) => {
-      console.warn('Audio playback prevented or failed:', err);
+    audio.play().catch((err) => {
+      if (!activeItem.isStopped) {
+        console.warn('Audio playback prevented or failed:', err);
+      }
       this.cleanup(soundId);
     });
   }
@@ -94,6 +99,7 @@ class AudioManager {
   stop(soundId) {
     const item = this.activeAudios.get(soundId);
     if (item) {
+      item.isStopped = true;
       if (item.endTimeoutId) {
         clearTimeout(item.endTimeoutId);
         item.endTimeoutId = null;
@@ -139,6 +145,7 @@ class AudioManager {
   stopAll() {
     const ids = Array.from(this.activeAudios.keys());
     ids.forEach((id) => this.stop(id));
+    this.activeAudios.clear();
   }
 }
 

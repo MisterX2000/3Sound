@@ -51,7 +51,7 @@
         muted: this.isMuted,
         allowOverlap: this.allowOverlap,
         onUpdate: (soundId, state) => {
-          this.playback[soundId] = state;
+          this.playback = { ...this.playback, [soundId]: state };
         }
       });
 
@@ -156,8 +156,12 @@
       this.audio.setMuted(this.isMuted);
     },
 
-    toggleOverlap() {
-      this.allowOverlap = !this.allowOverlap;
+    toggleOverlap(forcedVal = null) {
+      if (typeof forcedVal === 'boolean') {
+        this.allowOverlap = forcedVal;
+      } else {
+        this.allowOverlap = !this.allowOverlap;
+      }
       localStorage.setItem('soundboard_overlap', String(this.allowOverlap));
       this.audio.setAllowOverlap(this.allowOverlap);
     },
@@ -199,6 +203,7 @@
       }
       if (this.isPlaying(sound.id)) {
         this.audio.stop(sound.id);
+        this.playback = { ...this.playback, [sound.id]: { isPlaying: false, isLooping: false, progress: 0 } };
       } else {
         this.audio.play(sound, false);
       }
@@ -215,6 +220,15 @@
 
     stopAllSounds() {
       this.audio.stopAll();
+      this.playback = {};
+      if (typeof document !== 'undefined') {
+        if (document.activeElement && typeof document.activeElement.blur === 'function') {
+          document.activeElement.blur();
+        }
+        document.querySelectorAll('.sound-card').forEach((el) => {
+          if (typeof el.blur === 'function') el.blur();
+        });
+      }
     },
 
     isPlaying(soundId) {
