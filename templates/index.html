@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soundboard</title>
+
+  <!-- Favicon & PWA Icons -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+
+  <!-- PWA Manifest & App Metadata -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Soundboard">
+  <meta name="application-name" content="Soundboard">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- Vendored Tailwind CSS -->
+  <script src="/static/vendor/tailwindcss.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          },
+          animation: {
+            'pulse-subtle': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Soundboard Logic & Vendored Alpine.js -->
+  <script src="/static/js/audio.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body x-data="soundboard" class="min-h-full flex flex-col antialiased selection:bg-brand-500 selection:text-white" x-cloak>
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        
+        <!-- Logo / Title & Stats -->
+        <div class="flex items-center justify-between w-full md:w-auto">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                Soundboard
+                <span x-text="displayedCountBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700">
+                  0 sounds
+                </span>
+              </h1>
+              <p class="text-xs text-slate-400 hidden sm:block">Click any button to play sound</p>
+            </div>
+          </div>
+
+          <!-- Mobile Stop All shortcut -->
+          <button @click="stopAllSounds()" class="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition text-xs font-medium cursor-pointer">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <rect x="5" y="5" width="14" height="14" rx="2"></rect>
+            </svg>
+            Stop
+          </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="relative w-full md:max-w-md">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            id="search-input" 
+            x-model="searchQuery"
+            placeholder="Search sounds or categories... (Press / to focus)" 
+            class="w-full pl-10 pr-10 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+          >
+          <button 
+            x-show="searchQuery" 
+            @click="searchQuery = ''" 
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 cursor-pointer"
+            title="Clear search"
+          >
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Controls: View Mode, Volume, Solo/Overlap, Stop All, Rescan -->
+        <div class="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap sm:flex-nowrap">
+          
+          <!-- View Mode Switch: Flat vs Folders -->
+          <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs shadow-inner">
+            <button 
+              @click="setViewMode('flat')"
+              title="Flat View (All categories)" 
+              :class="viewMode === 'flat' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition font-medium cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <rect x="3" y="3" width="7" height="7" rx="1.5" stroke-width="2"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5" stroke-width="2"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5" stroke-width="2"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5" stroke-width="2"/>
+              </svg>
+              <span>Flat</span>
+            </button>
+            <button 
+              @click="setViewMode('folder')"
+              title="Folder View (Browse directory hierarchy)" 
+              :class="viewMode === 'folder' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition font-medium cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+              </svg>
+              <span>Folders</span>
+            </button>
+          </div>
+
+          <!-- Volume Slider -->
+          <div class="flex items-center gap-2 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl">
+            <button @click="toggleMute()" title="Toggle Mute" class="text-slate-400 hover:text-slate-200 transition cursor-pointer">
+              <svg x-show="!isMuted" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z" />
+              </svg>
+              <svg x-show="isMuted" class="w-4 h-4 text-rose-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+            </button>
+            <input 
+              type="range" 
+              min="0" 
+              max="1" 
+              step="0.05" 
+              :value="masterVolume"
+              @input="setVolume($event.target.value)"
+              class="w-20 accent-brand-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg appearance-none" 
+              title="Master Volume"
+            >
+            <span x-text="isMuted ? '0%' : `${Math.round(masterVolume * 100)}%`" class="text-[11px] text-slate-400 font-mono w-7">80%</span>
+          </div>
+
+          <!-- Stop All Button -->
+          <button 
+            @click="stopAllSounds()" 
+            title="Stop all currently playing sounds (Esc)"
+            class="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 transition font-medium text-xs shadow-sm cursor-pointer"
+          >
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <rect x="5" y="5" width="14" height="14" rx="2"></rect>
+            </svg>
+            <span>Stop All</span>
+          </button>
+
+          <!-- Reload / Rescan sounds -->
+          <button 
+            @click="loadSounds(true)" 
+            title="Rescan sounds directory from filesystem" 
+            class="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 transition cursor-pointer"
+          >
+            <svg :class="{ 'animate-spin text-brand-400': isRescanning }" class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Navigation / Filter Subheader Bar -->
+      <div class="mt-3.5 pt-2 border-t border-slate-800/60 flex items-center justify-between gap-3 overflow-hidden min-h-[42px]">
+        
+        <!-- Flat View: Category Pills -->
+        <div x-show="viewMode === 'flat'" class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs flex-1">
+          <div class="flex items-center gap-1.5">
+            <template x-for="cat in categories" :key="cat">
+              <button 
+                type="button"
+                @click="selectCategory(cat)"
+                :class="activeCategory === cat ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30 font-semibold' : 'bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <span x-text="cat"></span>
+                <span 
+                  x-text="categoryCounts[cat] || 0"
+                  :class="activeCategory === cat ? 'bg-brand-700 text-brand-100' : 'bg-slate-800 text-slate-400'"
+                  class="text-[10px] px-1.5 py-0.2 rounded-full"
+                ></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Folder View: Breadcrumbs Bar -->
+        <div x-show="viewMode === 'folder'" class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs flex-1">
+          <button 
+            x-show="currentFolder"
+            @click="openFolder(currentFolderObj.parent || '')"
+            title="Go up to parent folder" 
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 hover:border-slate-700 transition font-medium shrink-0 shadow-sm cursor-pointer"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            <span>Up</span>
+          </button>
+          <div class="flex items-center gap-1.5 text-xs text-slate-400 overflow-x-auto scrollbar-none">
+            <!-- Home Breadcrumb -->
+            <button 
+              type="button"
+              @click="openFolder('')"
+              :class="currentFolder === '' ? 'text-white font-semibold bg-slate-900 border border-slate-700/80 shadow-sm pointer-events-none' : 'text-slate-400 hover:text-slate-200 cursor-pointer'"
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition shrink-0"
+            >
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+              </svg>
+              <span>Home</span>
+            </button>
+
+            <!-- Nested Path Breadcrumbs -->
+            <template x-for="crumb in breadcrumbs" :key="crumb.path">
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-slate-600 select-none">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </span>
+                <button 
+                  type="button"
+                  @click="!crumb.isLast && openFolder(crumb.path)"
+                  :class="crumb.isLast ? 'text-white font-semibold bg-slate-900 border border-slate-700/80 shadow-sm pointer-events-none' : 'text-slate-400 hover:text-slate-200 cursor-pointer'"
+                  class="px-2.5 py-1 rounded-lg transition"
+                >
+                  <span x-text="crumb.name"></span>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Overlap Toggle -->
+        <label class="hidden sm:flex items-center gap-2 cursor-pointer text-xs text-slate-400 select-none whitespace-nowrap shrink-0">
+          <input type="checkbox" x-model="allowOverlap" @change="toggleOverlap()" class="sr-only peer">
+          <div class="w-7 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-600 relative"></div>
+          <span class="text-slate-300">Overlap</span>
+        </label>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Soundboard Container -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+    
+    <!-- Loading State -->
+    <div x-show="isLoading" class="flex flex-col items-center justify-center py-20 text-slate-500">
+      <svg class="animate-spin h-8 w-8 text-brand-500 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+      <p class="text-sm">Scanning sounds folder...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="!isLoading && sounds.length === 0" class="flex flex-col items-center justify-center py-20 text-center px-4">
+      <div class="h-16 w-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-4 shadow-inner">
+        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+        </svg>
+      </div>
+      <h3 class="text-lg font-semibold text-slate-200 mb-1">No sounds found</h3>
+      <p class="text-sm text-slate-400 max-w-md mb-6">
+        Drop audio files (<span class="font-mono text-indigo-400">.mp3</span>, <span class="font-mono text-indigo-400">.wav</span>, <span class="font-mono text-indigo-400">.ogg</span>, <span class="font-mono text-indigo-400">.m4a</span>) into the <code class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded text-slate-300">sounds/</code> folder.
+      </p>
+      <div class="text-xs text-slate-500 bg-slate-900/60 p-4 rounded-xl border border-slate-800/80 max-w-lg text-left">
+        <p class="font-medium text-slate-300 mb-1.5">Tip: Categories & Images</p>
+        <p class="mb-1">• Subfolders become categories automatically (e.g. <code class="text-indigo-300">sounds/Memes/airhorn.mp3</code>)</p>
+        <p>• Matching image names show as button covers (e.g. <code class="text-indigo-300">airhorn.png</code> or <code class="text-indigo-300">airhorn.jpg</code>)</p>
+      </div>
+    </div>
+
+    <!-- Flat View Container: Categorized Grids -->
+    <div x-show="!isLoading && viewMode === 'flat' && sounds.length > 0" class="space-y-8">
+      
+      <!-- Query returned no results -->
+      <div x-show="filteredFlatSounds.length === 0" class="py-20 text-center text-slate-400">
+        <p class="text-base font-semibold">No sounds found matching "<span x-text="searchQuery"></span>"</p>
+        <button 
+          @click="searchQuery = ''"
+          class="mt-3 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer"
+        >
+          Clear search query
+        </button>
+      </div>
+
+      <!-- Categories & Grids -->
+      <template x-for="group in flatCategoryGroups" :key="group.name">
+        <section class="space-y-3">
+          <!-- Section header -->
+          <div x-show="activeCategory === 'All'" class="flex items-center gap-2 text-sm font-semibold text-slate-300 border-b border-slate-800/80 pb-2">
+            <svg class="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <span x-text="group.name"></span>
+            <span class="text-xs text-slate-500 font-normal">(<span x-text="group.sounds.length"></span>)</span>
+          </div>
+
+          <!-- Sound Cards Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            <template x-for="sound in group.sounds" :key="sound.id">
+              <!-- Declarative Sound Card Component -->
+              <div 
+                role="button"
+                tabindex="0"
+                @click="handleSoundCardClick(sound, $event)"
+                @keydown.enter.prevent="handleSoundCardClick(sound, $event)"
+                @keydown.space.prevent="handleSoundCardClick(sound, $event)"
+                :class="{
+                  'ring-2 ring-emerald-500 border-emerald-500 bg-slate-800/80': isPlaying(sound.id) && isLooping(sound.id),
+                  'ring-2 ring-brand-500 border-brand-500 bg-slate-800/80': isPlaying(sound.id) && !isLooping(sound.id)
+                }"
+                class="sound-card group relative flex flex-col text-left rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-brand-500/50 shadow-md hover:shadow-xl hover:shadow-brand-500/10 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 overflow-hidden cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50"
+              >
+                <!-- Artwork Container -->
+                <div class="relative w-full aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center">
+                  <template x-if="sound.image_url">
+                    <img :src="sound.image_url" :alt="sound.title" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                  </template>
+                  <template x-if="!sound.image_url">
+                    <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 text-slate-600 group-hover:text-brand-400 group-hover:from-slate-900 group-hover:to-brand-950/20 transition-all">
+                      <svg class="w-10 h-10 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                    </div>
+                  </template>
+
+                  <!-- Gradient Overlay -->
+                  <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+
+                  <!-- Top Left Badges: Format & Loop Button -->
+                  <div class="absolute top-2 left-2 flex items-center gap-1.5 z-20">
+                    <span x-text="sound.format" class="px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono uppercase text-slate-300 pointer-events-none select-none"></span>
+                    <button 
+                      type="button" 
+                      @click.stop="toggleSoundLoop(sound)"
+                      :class="isLooping(sound.id) ? 'bg-emerald-500/90 text-white border-emerald-400 shadow-md shadow-emerald-500/40 ring-1 ring-emerald-400' : 'bg-slate-950/80 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-500'"
+                      :title="isLooping(sound.id) ? 'Looping enabled (Click to toggle)' : 'Enable loop'"
+                      class="loop-toggle-btn px-1.5 py-0.5 rounded backdrop-blur-md border text-[10px] font-mono flex items-center gap-1 transition-all duration-200 cursor-pointer"
+                    >
+                      <svg class="w-3 h-3 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span x-text="isLooping(sound.id) ? 'LOOP' : '1x'" class="loop-label text-[9px] font-bold tracking-wider"></span>
+                    </button>
+                  </div>
+
+                  <!-- Duration Badge (Top Right) -->
+                  <div class="duration-badge absolute top-2 right-2 px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono text-slate-200 flex items-center gap-1 z-10">
+                    <svg class="w-2.5 h-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                      <path stroke-width="2" d="M12 6v6l4 2"/>
+                    </svg>
+                    <span x-text="sound.duration_formatted || formatTime(sound.duration)"></span>
+                  </div>
+
+                  <!-- Play/Playing Status Overlay Icon -->
+                  <div :class="isPlaying(sound.id) ? 'opacity-100' : 'opacity-0'" class="status-overlay absolute inset-0 flex items-center justify-center group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px]">
+                    <div :class="isLooping(sound.id) ? 'bg-emerald-600 shadow-emerald-600/50' : 'bg-brand-600 shadow-brand-600/50'" class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                      <template x-if="isPlaying(sound.id)">
+                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                          <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+                          <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+                        </svg>
+                      </template>
+                      <template x-if="!isPlaying(sound.id)">
+                        <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Info Card Body -->
+                <div class="p-3 w-full flex-1 flex flex-col justify-between">
+                  <div>
+                    <h4 x-text="sound.title" :title="sound.title" class="font-semibold text-sm text-slate-100 group-hover:text-brand-300 transition-colors line-clamp-1"></h4>
+                    <p x-text="sound.category" class="text-[11px] text-slate-400 truncate mt-0.5"></p>
+                  </div>
+                </div>
+
+                <!-- Continuous Smooth Audio Progress Bar -->
+                <div class="progress-bar-container w-full h-1 bg-slate-800 overflow-hidden relative">
+                  <div 
+                    class="progress-bar h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none"
+                    :class="getProgress(sound.id) === 0 ? 'transition-none' : 'transition-all duration-300 ease-linear'"
+                    :style="`width: ${getProgress(sound.id)}%`"
+                  ></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </section>
+      </template>
+
+    </div>
+
+    <!-- Folder View Container: Hierarchical Navigation -->
+    <div x-show="!isLoading && viewMode === 'folder' && sounds.length > 0" class="space-y-8">
+      
+      <!-- Current Folder Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+        <div class="flex items-center gap-3">
+          <div class="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shadow-sm">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 x-text="currentFolderObj.name || 'All Sounds'" class="text-base font-bold text-white leading-tight">All Sounds</h2>
+            <p x-text="`${displayedSubfolders.length} ${displayedSubfolders.length === 1 ? 'folder' : 'folders'} • ${directFolderSounds.length} ${directFolderSounds.length === 1 ? 'sound' : 'sounds'}`" class="text-xs text-slate-400">0 folders &bull; 0 sounds</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Query returned no results in Folder View -->
+      <div x-show="searchQuery && displayedSubfolders.length === 0 && directFolderSounds.length === 0" class="py-20 text-center text-slate-400">
+        <p class="text-base font-semibold">No sounds found matching "<span x-text="searchQuery"></span>"</p>
+        <div class="mt-3 flex items-center justify-center gap-2">
+          <button 
+            @click="searchQuery = ''"
+            class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer"
+          >
+            Clear search query
+          </button>
+          <button 
+            x-show="currentFolder"
+            @click="openFolder('')"
+            class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
+          >
+            Search from Home
+          </button>
+        </div>
+      </div>
+
+      <!-- Subfolders Section -->
+      <div x-show="displayedSubfolders.length > 0" class="space-y-3">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+          <span>Folders</span>
+          <span class="text-[11px] font-normal text-slate-500">(<span x-text="displayedSubfolders.length"></span>)</span>
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          <template x-for="subfolder in displayedSubfolders" :key="subfolder.path">
+            <!-- Declarative Folder Card Component -->
+            <div 
+              role="button"
+              tabindex="0"
+              @click="openFolder(subfolder.path)"
+              @keydown.enter.prevent="openFolder(subfolder.path)"
+              @keydown.space.prevent="openFolder(subfolder.path)"
+              class="group relative flex flex-col text-left rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-indigo-500/50 shadow-md hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 overflow-hidden cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+            >
+              <!-- Artwork Container -->
+              <div class="relative w-full aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center">
+                <template x-if="subfolder.image_url">
+                  <img :src="subfolder.image_url" :alt="subfolder.name" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                </template>
+                <template x-if="!subfolder.image_url">
+                  <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950/20 to-slate-950 text-indigo-400 group-hover:text-indigo-300 group-hover:from-slate-900 group-hover:to-indigo-950/40 transition-all">
+                    <svg class="w-12 h-12 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                    </svg>
+                  </div>
+                </template>
+
+                <!-- Gradient Overlay -->
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+
+                <!-- Folder Badge (Top Left) -->
+                <div class="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-medium text-indigo-300 flex items-center gap-1">
+                  <svg class="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                  </svg>
+                  <span>Folder</span>
+                </div>
+
+                <!-- Total Count Badge (Top Right) -->
+                <div x-text="subfolder.total_sound_count || 0" class="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono text-slate-200">
+                  0
+                </div>
+
+                <!-- Hover Overlay -->
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[1px]">
+                  <div class="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/50 transform scale-90 group-hover:scale-100 transition-transform">
+                    <svg class="w-4 h-4 fill-none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Info Body -->
+              <div class="p-3 w-full flex-1 flex flex-col justify-between">
+                <div>
+                  <h4 x-text="subfolder.name" :title="subfolder.name" class="font-semibold text-sm text-slate-100 group-hover:text-indigo-300 transition-colors line-clamp-1"></h4>
+                  <p 
+                    x-text="(() => {
+                      const parts = [];
+                      const subCount = subfolder.subfolders ? subfolder.subfolders.length : 0;
+                      const soundCount = subfolder.total_sound_count || 0;
+                      if (subCount > 0) parts.push(`${subCount} folder${subCount === 1 ? '' : 's'}`);
+                      parts.push(`${soundCount} sound${soundCount === 1 ? '' : 's'}`);
+                      return parts.join(' • ');
+                    })()"
+                    class="text-[11px] text-slate-400 truncate mt-0.5"
+                  ></p>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Sounds in Current Folder Section -->
+      <div x-show="directFolderSounds.length > 0" class="space-y-3">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+          </svg>
+          <span>Sounds</span>
+          <span class="text-[11px] font-normal text-slate-500">(<span x-text="directFolderSounds.length"></span>)</span>
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          <template x-for="sound in directFolderSounds" :key="sound.id">
+            <!-- Declarative Sound Card Component -->
+            <div 
+              role="button"
+              tabindex="0"
+              @click="handleSoundCardClick(sound, $event)"
+              @keydown.enter.prevent="handleSoundCardClick(sound, $event)"
+              @keydown.space.prevent="handleSoundCardClick(sound, $event)"
+              :class="{
+                'ring-2 ring-emerald-500 border-emerald-500 bg-slate-800/80': isPlaying(sound.id) && isLooping(sound.id),
+                'ring-2 ring-brand-500 border-brand-500 bg-slate-800/80': isPlaying(sound.id) && !isLooping(sound.id)
+              }"
+              class="sound-card group relative flex flex-col text-left rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-brand-500/50 shadow-md hover:shadow-xl hover:shadow-brand-500/10 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 overflow-hidden cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50"
+            >
+              <!-- Artwork Container -->
+              <div class="relative w-full aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center">
+                <template x-if="sound.image_url">
+                  <img :src="sound.image_url" :alt="sound.title" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                </template>
+                <template x-if="!sound.image_url">
+                  <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 text-slate-600 group-hover:text-brand-400 group-hover:from-slate-900 group-hover:to-brand-950/20 transition-all">
+                    <svg class="w-10 h-10 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                  </div>
+                </template>
+
+                <!-- Gradient Overlay -->
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+
+                <!-- Top Left Badges: Format & Loop Button -->
+                <div class="absolute top-2 left-2 flex items-center gap-1.5 z-20">
+                  <span x-text="sound.format" class="px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono uppercase text-slate-300 pointer-events-none select-none"></span>
+                  <button 
+                    type="button" 
+                    @click.stop="toggleSoundLoop(sound)"
+                    :class="isLooping(sound.id) ? 'bg-emerald-500/90 text-white border-emerald-400 shadow-md shadow-emerald-500/40 ring-1 ring-emerald-400' : 'bg-slate-950/80 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-500'"
+                    :title="isLooping(sound.id) ? 'Looping enabled (Click to toggle)' : 'Enable loop'"
+                    class="loop-toggle-btn px-1.5 py-0.5 rounded backdrop-blur-md border text-[10px] font-mono flex items-center gap-1 transition-all duration-200 cursor-pointer"
+                  >
+                    <svg class="w-3 h-3 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span x-text="isLooping(sound.id) ? 'LOOP' : '1x'" class="loop-label text-[9px] font-bold tracking-wider"></span>
+                  </button>
+                </div>
+
+                <!-- Duration Badge (Top Right) -->
+                <div class="duration-badge absolute top-2 right-2 px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono text-slate-200 flex items-center gap-1 z-10">
+                  <svg class="w-2.5 h-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                    <path stroke-width="2" d="M12 6v6l4 2"/>
+                  </svg>
+                  <span x-text="sound.duration_formatted || formatTime(sound.duration)"></span>
+                </div>
+
+                <!-- Play/Playing Status Overlay Icon -->
+                <div :class="isPlaying(sound.id) ? 'opacity-100' : 'opacity-0'" class="status-overlay absolute inset-0 flex items-center justify-center group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px]">
+                  <div :class="isLooping(sound.id) ? 'bg-emerald-600 shadow-emerald-600/50' : 'bg-brand-600 shadow-brand-600/50'" class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                    <template x-if="isPlaying(sound.id)">
+                      <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                        <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+                        <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+                      </svg>
+                    </template>
+                    <template x-if="!isPlaying(sound.id)">
+                      <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </template>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Info Card Body -->
+              <div class="p-3 w-full flex-1 flex flex-col justify-between">
+                <div>
+                  <h4 x-text="sound.title" :title="sound.title" class="font-semibold text-sm text-slate-100 group-hover:text-brand-300 transition-colors line-clamp-1"></h4>
+                  <p x-text="sound.category" class="text-[11px] text-slate-400 truncate mt-0.5"></p>
+                </div>
+              </div>
+
+              <!-- Continuous Smooth Audio Progress Bar -->
+              <div class="progress-bar-container w-full h-1 bg-slate-800 overflow-hidden relative">
+                <div 
+                  class="progress-bar h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none"
+                  :class="getProgress(sound.id) === 0 ? 'transition-none' : 'transition-all duration-300 ease-linear'"
+                  :style="`width: ${getProgress(sound.id)}%`"
+                ></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Folder Empty State -->
+      <div x-show="!searchQuery && displayedSubfolders.length === 0 && directFolderSounds.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
+        <div class="h-12 w-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-3 shadow-inner">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-slate-300">This folder is empty</p>
+        <p class="text-xs text-slate-500 mt-0.5 mb-4">No audio files or subfolders found here</p>
+        <button 
+          x-show="currentFolder"
+          @click="openFolder(currentFolderObj.parent || '')" 
+          class="px-3.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:bg-slate-800 text-xs text-slate-300 flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+          </svg>
+          <span>Go to parent folder</span>
+        </button>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/60 py-4 text-center text-xs text-slate-500">
+    <p>Soundboard &bull; Click card to play &bull; Click <span class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-mono text-[10px]">🔁</span> to loop &bull; Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400 font-mono text-[10px]">Esc</kbd> to stop all</p>
+  </footer>
+
+  <!-- Toast Notification for Rescan Feedback -->
+  <div 
+    x-show="toastMessage" 
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 translate-y-20"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100 translate-y-0"
+    x-transition:leave-end="opacity-0 translate-y-20"
+    class="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs text-slate-200 pointer-events-none"
+  >
+    <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+    </svg>
+    <span x-text="toastMessage"></span>
+  </div>
+
+</body>
+</html>

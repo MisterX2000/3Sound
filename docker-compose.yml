@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  soundboard:
+    build: .
+    container_name: soundboard
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount local sounds folder to container so new sounds are instantly available
+      - ./sounds:/app/sounds
+    environment:
+      - SOUNDS_DIR=/app/sounds
+    restart: unless-stopped

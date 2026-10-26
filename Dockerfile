@@ -1,0 +1,36 @@
+# Use official lightweight Python image
+FROM python:3.15-slim
+
+# Install uv from the official Astral image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Environment configuration for uv & python
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    SOUNDS_DIR=/app/sounds \
+    PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+
+# Copy dependency specifications (including lockfile if present)
+COPY pyproject.toml uv.lock* ./
+
+# Install dependencies using uv (creates .venv with bytecode compiled)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
+
+# Copy application files
+COPY *.py ./
+COPY templates/ ./templates/
+COPY static/ ./static/
+
+# Ensure sounds directory exists
+RUN mkdir -p /app/sounds
+
+# Expose web server port
+EXPOSE 8000
+
+# Start server using FastAPI CLI
+CMD ["fastapi", "run", "main.py", "--port", "8000", "--proxy-headers"]
