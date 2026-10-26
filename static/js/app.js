@@ -13,6 +13,7 @@
       allowOverlap: true,
       isLoading: true,
       isRescanning: false,
+      appVersion: '',
       toastMessage: null,
       toastTimeout: null,
 
@@ -264,6 +265,9 @@
         this.sounds = data.sounds || [];
         this.categories = ['All', ...(data.categories || [])];
         this.folders = data.folders || {};
+        if (data.version) {
+          this.appVersion = data.version;
+        }
 
         // Precompute category counts map once in O(N)
         const counts = { All: this.sounds.length };

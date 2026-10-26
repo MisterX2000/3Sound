@@ -1,9 +1,26 @@
+import tomllib
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent
+
+
+def _load_app_version() -> str:
+    """Read the application version from pyproject.toml."""
+    pyproject_file = BASE_DIR / "pyproject.toml"
+    if pyproject_file.is_file():
+        try:
+            with open(pyproject_file, "rb") as f:
+                data = tomllib.load(f)
+                return str(data.get("project", {}).get("version", "0.0.0"))
+        except OSError, tomllib.TOMLDecodeError:
+            return "0.0.0"
+    return "0.0.0"
+
+
+APP_VERSION = _load_app_version()
 
 
 class Settings(BaseSettings):

@@ -970,7 +970,26 @@
 
   <!-- Footer -->
   <footer class="border-t border-slate-800/60 py-4 text-center text-xs text-slate-500">
-    <p>Soundboard &bull; Click card to play &bull; Click <span class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-mono text-[10px]">🔁</span> to loop &bull; Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400 font-mono text-[10px]">Esc</kbd> to stop all</p>
+    <p class="flex items-center justify-center flex-wrap gap-x-2 gap-y-1">
+      <span class="inline-flex items-center gap-1.5">
+        <span>Soundboard</span>
+        <a 
+          :href="appVersion ? ('https://github.com/MisterX2000/3Sound/releases/tag/v' + appVersion) : 'https://github.com/MisterX2000/3Sound/releases'" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          x-show="appVersion" 
+          x-text="'v' + appVersion" 
+          title="View release on GitHub"
+          class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700/80 font-mono text-[10px] transition-colors cursor-pointer"
+        ></a>
+      </span>
+      <span>&bull;</span>
+      <span>Click card to play</span>
+      <span>&bull;</span>
+      <span>Click <span class="px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-mono text-[10px]">🔁</span> to loop</span>
+      <span>&bull;</span>
+      <span>Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400 font-mono text-[10px]">Esc</kbd> to stop all</span>
+    </p>
   </footer>
 
   <!-- Toast Notification for Rescan Feedback -->

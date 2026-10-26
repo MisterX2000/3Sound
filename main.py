@@ -15,6 +15,7 @@ from mutagen import MutagenError
 logger = logging.getLogger("soundboard")
 
 from config import (
+    APP_VERSION,
     FAVICON_ICO,
     FAVICON_PNG,
     FAVICON_SVG,
@@ -221,6 +222,7 @@ def scan_sounds() -> dict[str, Any]:
         "categories": sorted_categories,
         "sounds": sounds,
         "folders": folders,
+        "version": APP_VERSION,
     }
 
 
@@ -249,7 +251,7 @@ except (OSError, RuntimeError) as exc:
 # ==========================================
 # FastAPI Application
 # ==========================================
-app = FastAPI(title="Soundboard")
+app = FastAPI(title="Soundboard", version=APP_VERSION)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.mount("/media", StaticFiles(directory=SOUNDS_DIR), name="media")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
