@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     sounds_dir: Path = BASE_DIR / "sounds"
     host: str = "0.0.0.0"
     port: int = 8000
+    audio_extensions: str = ".mp3,.m4a,.ogg,.wav,.flac,.aac,.wma,.webm,.opus,.aiff"
+    folder_image_names: str = "folder,cover,icon,thumb,thumbnail,album"
+    hide_empty_folders: bool = True
+    extract_embedded_art: bool = True
 
 
 @lru_cache
@@ -55,6 +59,32 @@ SW_JS = STATIC_DIR / "sw.js"
 FAVICON_ICO = STATIC_DIR / "favicon.ico"
 FAVICON_SVG = STATIC_DIR / "favicon.svg"
 FAVICON_PNG = STATIC_DIR / "favicon.png"
+
+
+# File format & scanner configurations
+def parse_extensions(ext_str: str) -> set[str]:
+    """Parse comma-separated audio extensions, ensuring leading dot and lowercase."""
+    extensions: set[str] = set()
+    for item in ext_str.split(","):
+        cleaned = item.strip().lower()
+        if not cleaned:
+            continue
+        if not cleaned.startswith("."):
+            cleaned = f".{cleaned}"
+        extensions.add(cleaned)
+    return extensions
+
+
+def parse_names(names_str: str) -> list[str]:
+    """Parse comma-separated names, lowercased and stripped."""
+    return [name.strip().lower() for name in names_str.split(",") if name.strip()]
+
+
+AUDIO_EXTENSIONS = parse_extensions(settings.audio_extensions)
+FOLDER_IMAGE_NAMES = parse_names(settings.folder_image_names)
+HIDE_EMPTY_FOLDERS = settings.hide_empty_folders
+EXTRACT_EMBEDDED_ART = settings.extract_embedded_art
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".bmp"}
 
 # Ensure directories exist
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)

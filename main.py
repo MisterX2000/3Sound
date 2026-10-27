@@ -1,3 +1,4 @@
+import base64
 import logging
 import os
 import urllib.parse
@@ -5,20 +6,27 @@ import wave
 from pathlib import Path
 from typing import Any, TypedDict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from mutagen import File as MutagenFile
 from mutagen import MutagenError
+from mutagen.flac import Picture
+from mutagen.mp4 import MP4Cover
 
 logger = logging.getLogger("soundboard")
 
 from config import (
     APP_VERSION,
+    AUDIO_EXTENSIONS,
+    EXTRACT_EMBEDDED_ART,
     FAVICON_ICO,
     FAVICON_PNG,
     FAVICON_SVG,
+    FOLDER_IMAGE_NAMES,
+    HIDE_EMPTY_FOLDERS,
+    IMAGE_EXTENSIONS,
     INDEX_HTML,
     MANIFEST_JSON,
     SOUNDS_DIR,
@@ -27,23 +35,8 @@ from config import (
     settings,
 )
 
-# Supported file formats
-AUDIO_EXTENSIONS = {
-    ".mp3",
-    ".m4a",
-    ".ogg",
-    ".wav",
-    ".flac",
-    ".aac",
-    ".wma",
-    ".webm",
-    ".opus",
-    ".aiff",
-}
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".bmp"}
-
-# Audio duration cache: (path, mtime, size) -> duration_float
-_duration_cache: dict[tuple[str, float, int], float] = {}
+# Audio metadata cache: (path, mtime, size) -> (duration_float, has_embedded_cover_bool)
+_audio_meta_cache: dict[tuple[str, float, int], tuple[float, bool]] = {}
 
 
 class FolderInfo(TypedDict):
@@ -72,21 +65,38 @@ def format_duration(seconds: float) -> str:
     return f"{minutes}:{secs:02d}"
 
 
-def get_audio_duration(file_path: Path) -> float:
-    """Extract audio duration using Mutagen or standard library wave parser."""
+def get_audio_info(file_path: Path) -> tuple[float, bool]:
+    """Extract audio duration and check for embedded cover art using Mutagen or wave parser."""
     try:
         stat = file_path.stat()
         cache_key = (str(file_path), stat.st_mtime, stat.st_size)
-        if cache_key in _duration_cache:
-            return _duration_cache[cache_key]
+        if cache_key in _audio_meta_cache:
+            return _audio_meta_cache[cache_key]
 
         duration = 0.0
+        has_cover = False
 
         # Try Mutagen first (supports mp3, m4a, ogg, flac, wav, etc.)
         try:
             audio = MutagenFile(file_path)
-            if audio is not None and getattr(audio, "info", None) is not None:
-                duration = float(getattr(audio.info, "length", 0.0) or 0.0)
+            if audio is not None:
+                if getattr(audio, "info", None) is not None:
+                    duration = float(getattr(audio.info, "length", 0.0) or 0.0)
+
+                if EXTRACT_EMBEDDED_ART:
+                    # Check for ID3 APIC frames or MP4 covr or Vorbis METADATA_BLOCK_PICTURE
+                    if getattr(audio, "tags", None) is not None:
+                        for tag in audio.tags.values():
+                            if getattr(tag, "FrameID", "") == "APIC":
+                                has_cover = True
+                                break
+                        if not has_cover and audio.tags.get("covr"):
+                            has_cover = True
+                        if not has_cover and audio.tags.get("METADATA_BLOCK_PICTURE"):
+                            has_cover = True
+                    # Check for native FLAC pictures
+                    if not has_cover and getattr(audio, "pictures", None):
+                        has_cover = True
         except MutagenError, OSError, ValueError:
             duration = 0.0
 
@@ -101,10 +111,55 @@ def get_audio_duration(file_path: Path) -> float:
             except wave.Error, OSError:
                 pass
 
-        _duration_cache[cache_key] = duration
-        return duration
+        _audio_meta_cache[cache_key] = (duration, has_cover)
+        return duration, has_cover
     except OSError:
-        return 0.0
+        return 0.0, False
+
+
+def extract_embedded_cover(sound_path: Path) -> tuple[str, bytes] | None:
+    """Extract embedded cover image (MIME type and raw bytes) from audio metadata in-memory."""
+    try:
+        audio = MutagenFile(sound_path)
+        if audio is None:
+            return None
+
+        # 1. ID3 tags (MP3, AIFF, etc.)
+        if getattr(audio, "tags", None) is not None:
+            for tag in audio.tags.values():
+                if getattr(tag, "FrameID", "") == "APIC":
+                    mime = getattr(tag, "mime", "image/jpeg") or "image/jpeg"
+                    return mime, bytes(tag.data)
+
+            # MP4 'covr' (M4A, MP4, ALAC)
+            covr = audio.tags.get("covr")
+            if covr and len(covr) > 0:
+                cover = covr[0]
+                imageformat = getattr(cover, "imageformat", None)
+                mime = (
+                    "image/png" if imageformat == MP4Cover.FORMAT_PNG else "image/jpeg"
+                )
+                return mime, bytes(cover)
+
+            # Vorbis Comment METADATA_BLOCK_PICTURE (OGG, Opus, FLAC in OGG)
+            mbp = audio.tags.get("METADATA_BLOCK_PICTURE")
+            if mbp and len(mbp) > 0:
+                pic_data = base64.b64decode(mbp[0])
+                pic = Picture(pic_data)
+                mime = getattr(pic, "mime", "image/jpeg") or "image/jpeg"
+                return mime, pic.data
+
+        # 2. Native FLAC pictures
+        pictures = getattr(audio, "pictures", None)
+        if pictures and len(pictures) > 0:
+            pic = pictures[0]
+            mime = getattr(pic, "mime", "image/jpeg") or "image/jpeg"
+            return mime, pic.data
+
+    except MutagenError, OSError, ValueError, KeyError:
+        return None
+
+    return None
 
 
 def find_matching_image(sound_path: Path) -> str | None:
@@ -120,12 +175,9 @@ def find_matching_image(sound_path: Path) -> str | None:
     return None
 
 
-FOLDER_COVER_NAMES = ["folder", "cover", "icon", "thumb", "thumbnail", "album"]
-
-
 def find_folder_image(folder_path: Path) -> str | None:
     """Find folder cover image (e.g. folder.png, cover.jpg, icon.svg, etc.)."""
-    for base in FOLDER_COVER_NAMES:
+    for base in FOLDER_IMAGE_NAMES:
         for ext in IMAGE_EXTENSIONS:
             candidate = folder_path / f"{base}{ext}"
             if candidate.is_file():
@@ -170,7 +222,10 @@ def scan_sounds() -> dict[str, Any]:
                 sound_url = f"/media/{'/'.join(encoded_sound_parts)}"
                 image_url = find_matching_image(file_path)
 
-                duration_sec = get_audio_duration(file_path)
+                duration_sec, has_cover = get_audio_info(file_path)
+                if not image_url and EXTRACT_EMBEDDED_ART and has_cover:
+                    image_url = f"/api/cover/{'/'.join(encoded_sound_parts)}"
+
                 clean_title = file_path.stem.replace("_", " ").replace("-", " ").strip()
 
                 sounds.append(
@@ -215,6 +270,15 @@ def scan_sounds() -> dict[str, Any]:
                 total += len(other_sound_ids)
         fld["total_sound_count"] = total
 
+    # Hide empty folders if configured
+    if HIDE_EMPTY_FOLDERS:
+        valid_paths = {
+            p for p, fld in folders.items() if not p or fld["total_sound_count"] > 0
+        }
+        folders = {p: fld for p, fld in folders.items() if p in valid_paths}
+        for fld in folders.values():
+            fld["subfolders"] = [sub for sub in fld["subfolders"] if sub in valid_paths]
+
     sorted_categories = sorted(
         categories_set, key=lambda c: (c != "General", c.lower())
     )
@@ -234,6 +298,8 @@ def get_cached_sounds(force_reload: bool = False) -> dict[str, Any]:
     """Retrieve sounds metadata from cache, rescanning filesystem only when force_reload is True or cache is empty."""
     global _metadata_cache
     if _metadata_cache is None or force_reload:
+        if force_reload:
+            _audio_meta_cache.clear()
         print(
             f"[{'RELOAD' if force_reload else 'INIT'}] Scanning sounds directory from disk: {SOUNDS_DIR}"
         )
@@ -294,6 +360,38 @@ async def favicon():
     if FAVICON_SVG.is_file():
         return FileResponse(FAVICON_SVG, media_type="image/svg+xml")
     raise HTTPException(status_code=404, detail="favicon not found")
+
+
+@app.get("/api/cover/{sound_id:path}")
+async def api_get_cover(sound_id: str):
+    """Stream embedded cover art extracted on-the-fly from audio metadata without writing to disk."""
+    if not EXTRACT_EMBEDDED_ART:
+        raise HTTPException(
+            status_code=404, detail="Embedded artwork extraction is disabled"
+        )
+
+    base_dir = SOUNDS_DIR.resolve()
+    sound_path = (base_dir / sound_id).resolve()
+    try:
+        sound_path.relative_to(base_dir)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not sound_path.is_file():
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    cover = extract_embedded_cover(sound_path)
+    if not cover:
+        raise HTTPException(status_code=404, detail="No embedded cover art found")
+
+    mime, data = cover
+    return Response(
+        content=data,
+        media_type=mime,
+        headers={
+            "Cache-Control": "public, max-age=604800, immutable",
+        },
+    )
 
 
 @app.get("/api/sounds")
