@@ -15,6 +15,8 @@ package = false
 [dependency-groups]
 dev = [
     "bump-my-version>=1.6.7",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.17.2",
     "ty>=0.0.92",
 ]
@@ -34,3 +36,21 @@ allow_dirty = false
 commit = true
 message = "Bump version: {current_version} → {new_version}"
 pre_commit_hooks = ["uv sync --upgrade", "git add uv.lock"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-v --strict-markers"
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "create_samples.py",
+    "update_vendor.py",
+    ".venv/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

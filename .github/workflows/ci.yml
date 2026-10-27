@@ -37,3 +37,34 @@ jobs:
 
       - name: Run ty Type Check
         run: uv run ty check .
+
+  test:
+    name: Run Pytest & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.15
+
+      - name: Install dependencies
+        run: uv sync --locked --dev
+
+      - name: Run Pytest with Coverage
+        run: |
+          uv run pytest --cov=. --cov-report=term-missing --cov-report=markdown:coverage.md
+
+      - name: Publish Coverage Report to Step Summary
+        if: always()
+        run: |
+          if [ -f coverage.md ]; then
+            echo "### Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+            cat coverage.md >> $GITHUB_STEP_SUMMARY
+          fi
