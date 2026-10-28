@@ -106,15 +106,16 @@ def embed_artwork(
     audio = WAVE(str(filepath))
     if audio.tags is None:
         audio.add_tags()
-    audio.tags.add(
-        APIC(
-            encoding=3,  # UTF-8
-            mime=mime,
-            type=3,  # Cover (front)
-            desc=desc,
-            data=image_bytes,
+    if audio.tags is not None:
+        audio.tags.add(
+            APIC(
+                encoding=3,  # UTF-8
+                mime=mime,
+                type=3,  # Cover (front)
+                desc=desc,
+                data=image_bytes,
+            )
         )
-    )
     audio.save()
 
 
