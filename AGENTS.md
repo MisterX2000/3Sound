@@ -65,35 +65,12 @@ docker compose -f docker-compose.dev.yml up --build # Build from local source
 - `static/js/app.js`: Alpine.js soundboard component, search, filtering, and localStorage hydration.
 - `sounds/`: Audio library directory (gitignored; audio files and companion covers).
 
-## Commit Conventions
-All commits must strictly follow the **Conventional Commits v1.0.0** specification. For detailed guidelines and workflow, refer to [`.agents/skills/conventional-commits/SKILL.md`](.agents/skills/conventional-commits/SKILL.md).
+## Skills
+Repository skills are located in [`.agents/skills/`](.agents/skills/). Agents must consult and follow them when performing applicable tasks:
 
-### Format
-```text
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-### Allowed Types
-| Type | Purpose | SemVer |
+| Skill | Reference | Description |
 | :--- | :--- | :--- |
-| `feat` | New feature or capability | MINOR |
-| `fix` | Bug fix or patch | PATCH |
-| `perf` | Performance or memory optimization | PATCH |
-| `refactor` | Code restructuring without behavior change | None / PATCH |
-| `style` | Formatting, whitespace, linting fixes | None |
-| `docs` | Documentation updates only | None |
-| `test` | Adding or updating tests | None |
-| `build` | Build system, packaging, or dependency changes | None / PATCH |
-| `ci` | CI/CD configuration and GitHub workflows | None |
-| `chore` | Housekeeping, vendor updates, sample generation | None |
-
-### Rules
-- Use imperative, present tense in the description (e.g. `add`, `fix`, not `added`, `fixes`).
-- Keep subject line ≤ 72 characters, all lowercase type/scope, no trailing period.
+| **`conventional-commits`** | [`.agents/skills/conventional-commits/SKILL.md`](.agents/skills/conventional-commits/SKILL.md) | Strict Conventional Commits v1.0.0 guidelines (`<type>[scope]: <description>`). Mandatory for all git commit messages. |
 
 ## Guardrails & Non-Negotiables
 - **Zero Frontend Build Step**: Never introduce Node.js build pipelines, Webpack, Vite, or npm scripts for frontend delivery. Use static vendored assets.
