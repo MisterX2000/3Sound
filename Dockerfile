@@ -14,8 +14,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Copy dependency specifications (including lockfile if present)
-COPY pyproject.toml uv.lock* ./
+# Ensure sounds directory exists
+RUN mkdir -p /app/sounds
+
+# Copy dependency specifications (including lockfile and python pin if present)
+COPY pyproject.toml uv.lock* .python-version* ./
 
 # Install dependencies using uv (creates .venv with bytecode compiled)
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -25,9 +28,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY *.py ./
 COPY templates/ ./templates/
 COPY static/ ./static/
-
-# Ensure sounds directory exists
-RUN mkdir -p /app/sounds
 
 # Expose web server port
 EXPOSE 8000
