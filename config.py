@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     default_volume: int = 80
     default_allow_overlap: bool = True
     default_muted: bool = False
+    audio_cache_size: int = 30
 
     @field_validator("default_view_mode")
     @classmethod
@@ -57,6 +58,11 @@ class Settings(BaseSettings):
     @classmethod
     def validate_volume(cls, v: int) -> int:
         return max(0, min(100, int(v)))
+
+    @field_validator("audio_cache_size")
+    @classmethod
+    def validate_audio_cache_size(cls, v: int) -> int:
+        return max(1, min(500, int(v)))
 
 
 @lru_cache
@@ -107,6 +113,7 @@ DEFAULT_VIEW_MODE = settings.default_view_mode
 DEFAULT_VOLUME = settings.default_volume
 DEFAULT_ALLOW_OVERLAP = settings.default_allow_overlap
 DEFAULT_MUTED = settings.default_muted
+AUDIO_CACHE_SIZE = settings.audio_cache_size
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".bmp"}
 
 
@@ -119,6 +126,7 @@ def get_client_config(current_settings: Settings | None = None) -> dict[str, Any
         "default_volume": s.default_volume,
         "default_allow_overlap": s.default_allow_overlap,
         "default_muted": s.default_muted,
+        "audio_cache_size": s.audio_cache_size,
     }
 
 

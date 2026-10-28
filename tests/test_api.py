@@ -15,7 +15,20 @@ def test_api_sounds(client: TestClient):
     assert "config" in data
     assert data["config"]["default_view_mode"] in ("flat", "folder")
     assert isinstance(data["config"]["default_volume"], int)
+    assert data["config"]["audio_cache_size"] == 30
     assert len(data["sounds"]) >= 3
+    # Check that sound_url includes timestamp cache-busting
+    assert "?v=" in data["sounds"][0]["sound_url"]
+
+
+def test_media_cache_headers(client: TestClient):
+    # Fetch an audio file from /media and verify immutable cache headers
+    response = client.get("/media/General/click.wav")
+    assert response.status_code == 200
+    cache_control = response.headers.get("cache-control", "")
+    assert "public" in cache_control
+    assert "max-age=31536000" in cache_control
+    assert "immutable" in cache_control
 
 
 def test_api_sounds_force_reload(client: TestClient):

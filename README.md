@@ -89,6 +89,7 @@ Copy `.env.example` to `.env` to customize settings locally or configure them as
 | `DEFAULT_VOLUME` | `int` | `80` | Default master playback volume percentage on first open (`0`-`100`) |
 | `DEFAULT_ALLOW_OVERLAP`| `bool` | `true` | Allow concurrent sound playback by default |
 | `DEFAULT_MUTED` | `bool` | `false` | Start soundboard muted by default |
+| `AUDIO_CACHE_SIZE` | `int` | `30` | Maximum number of unique sound audio element pools retained in browser memory |
 | `HIDE_EMPTY_FOLDERS` | `bool` | `true` | Hide directories containing zero playable audio files |
 | `EXTRACT_EMBEDDED_ART` | `bool` | `true` | Extract embedded ID3/FLAC/MP4 cover art on-the-fly |
 

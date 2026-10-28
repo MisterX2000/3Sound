@@ -223,10 +223,15 @@ def scan_sounds() -> dict[str, Any]:
                 encoded_sound_parts = [
                     urllib.parse.quote(part) for part in rel_sound_path.parts
                 ]
-                sound_url = f"/media/{'/'.join(encoded_sound_parts)}"
+                duration_sec, has_cover = get_audio_info(file_path)
+                try:
+                    sound_mtime = int(file_path.stat().st_mtime)
+                except OSError:
+                    sound_mtime = 0
+
+                sound_url = f"/media/{'/'.join(encoded_sound_parts)}?v={sound_mtime}"
                 image_url = find_matching_image(file_path)
 
-                duration_sec, has_cover = get_audio_info(file_path)
                 if not image_url and EXTRACT_EMBEDDED_ART and has_cover:
                     image_url = f"/api/cover/{'/'.join(encoded_sound_parts)}"
 
@@ -321,9 +326,18 @@ except (OSError, RuntimeError) as exc:
 # ==========================================
 # FastAPI Application
 # ==========================================
+class CachedStaticFiles(StaticFiles):
+    """StaticFiles subclass that injects immutable caching headers for audio media."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        resp = super().file_response(*args, **kwargs)
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resp
+
+
 app = FastAPI(title=APP_TITLE, version=APP_VERSION)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-app.mount("/media", StaticFiles(directory=SOUNDS_DIR), name="media")
+app.mount("/media", CachedStaticFiles(directory=SOUNDS_DIR), name="media")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 

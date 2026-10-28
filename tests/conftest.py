@@ -74,6 +74,7 @@ def mock_sounds_env(
             sub_app = getattr(route, "app", None)
             if isinstance(sub_app, StaticFiles):
                 sub_app.directory = str(sounds_root)
+                sub_app.all_directories = [str(sounds_root)]
 
     # Reset in-memory caches
     main._metadata_cache = None

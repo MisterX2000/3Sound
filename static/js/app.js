@@ -67,6 +67,8 @@
         volume: this.masterVolume,
         muted: this.isMuted,
         allowOverlap: this.allowOverlap,
+        audioCacheSize: typeof serverConfig.audio_cache_size === 'number' ? serverConfig.audio_cache_size : 30,
+        maxVoicesPerSound: 8,
         onPlay: (soundId, { duration, isLooping }) => {
           this.triggerProgressBarPlay(soundId, duration, isLooping);
         },
@@ -267,6 +269,9 @@
 
     async loadSounds(forceReload = false) {
       this.isRescanning = forceReload;
+      if (forceReload && this.audio) {
+        this.audio.clearCache();
+      }
       try {
         const url = forceReload ? '/api/sounds?reload=true' : '/api/sounds';
         const res = await fetch(url);
@@ -294,7 +299,7 @@
           }
           if (localStorage.getItem('soundboard_overlap') === null && typeof data.config.default_allow_overlap === 'boolean') {
             this.allowOverlap = data.config.default_allow_overlap;
-            if (this.audio) this.audio.setOverlap(this.allowOverlap);
+            if (this.audio) this.audio.setAllowOverlap(this.allowOverlap);
           }
           if (localStorage.getItem('soundboard_muted') === null && typeof data.config.default_muted === 'boolean') {
             this.isMuted = data.config.default_muted;

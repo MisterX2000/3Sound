@@ -62,6 +62,7 @@ def test_settings_defaults():
     assert s.default_volume == 80
     assert s.default_allow_overlap is True
     assert s.default_muted is False
+    assert s.audio_cache_size == 30
     assert ".mp3" in s.audio_extensions
     assert "folder" in s.folder_image_names
 
@@ -74,6 +75,7 @@ def test_settings_env_override(monkeypatch):
     monkeypatch.setenv("DEFAULT_VOLUME", "65")
     monkeypatch.setenv("DEFAULT_ALLOW_OVERLAP", "false")
     monkeypatch.setenv("DEFAULT_MUTED", "true")
+    monkeypatch.setenv("AUDIO_CACHE_SIZE", "50")
     s = Settings()
     assert s.port == 9999
     assert s.hide_empty_folders is False
@@ -82,6 +84,7 @@ def test_settings_env_override(monkeypatch):
     assert s.default_volume == 65
     assert s.default_allow_overlap is False
     assert s.default_muted is True
+    assert s.audio_cache_size == 50
 
 
 def test_settings_validation():
@@ -101,6 +104,13 @@ def test_settings_validation():
     s4 = Settings(default_volume=150)
     assert s4.default_volume == 100
 
+    # Clamping audio_cache_size
+    s5 = Settings(audio_cache_size=-5)
+    assert s5.audio_cache_size == 1
+
+    s6 = Settings(audio_cache_size=999)
+    assert s6.audio_cache_size == 500
+
 
 def test_get_client_config():
     from config import get_client_config
@@ -111,6 +121,7 @@ def test_get_client_config():
         default_volume=50,
         default_allow_overlap=False,
         default_muted=True,
+        audio_cache_size=40,
     )
     cfg = get_client_config(s)
     assert cfg == {
@@ -119,6 +130,7 @@ def test_get_client_config():
         "default_volume": 50,
         "default_allow_overlap": False,
         "default_muted": True,
+        "audio_cache_size": 40,
     }
 
 
