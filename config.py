@@ -1,7 +1,9 @@
 import tomllib
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -39,6 +41,22 @@ class Settings(BaseSettings):
     folder_image_names: str = "folder,cover,icon,thumb,thumbnail,album"
     hide_empty_folders: bool = True
     extract_embedded_art: bool = True
+    app_title: str = "Soundboard"
+    default_view_mode: str = "flat"
+    default_volume: int = 80
+    default_allow_overlap: bool = True
+    default_muted: bool = False
+
+    @field_validator("default_view_mode")
+    @classmethod
+    def validate_view_mode(cls, v: str) -> str:
+        clean = (v or "").strip().lower()
+        return clean if clean in {"flat", "folder"} else "flat"
+
+    @field_validator("default_volume")
+    @classmethod
+    def validate_volume(cls, v: int) -> int:
+        return max(0, min(100, int(v)))
 
 
 @lru_cache
@@ -84,7 +102,25 @@ AUDIO_EXTENSIONS = parse_extensions(settings.audio_extensions)
 FOLDER_IMAGE_NAMES = parse_names(settings.folder_image_names)
 HIDE_EMPTY_FOLDERS = settings.hide_empty_folders
 EXTRACT_EMBEDDED_ART = settings.extract_embedded_art
+APP_TITLE = settings.app_title
+DEFAULT_VIEW_MODE = settings.default_view_mode
+DEFAULT_VOLUME = settings.default_volume
+DEFAULT_ALLOW_OVERLAP = settings.default_allow_overlap
+DEFAULT_MUTED = settings.default_muted
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".bmp"}
+
+
+def get_client_config(current_settings: Settings | None = None) -> dict[str, Any]:
+    """Return dictionary of frontend client configuration."""
+    s = current_settings or get_settings()
+    return {
+        "app_title": s.app_title,
+        "default_view_mode": s.default_view_mode,
+        "default_volume": s.default_volume,
+        "default_allow_overlap": s.default_allow_overlap,
+        "default_muted": s.default_muted,
+    }
+
 
 # Ensure directories exist
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)

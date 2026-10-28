@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import os
 import urllib.parse
@@ -6,9 +7,10 @@ import wave
 from pathlib import Path
 from typing import Any, TypedDict
 
+import jinja2
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from mutagen import File as MutagenFile
 from mutagen import MutagenError
@@ -18,6 +20,7 @@ from mutagen.mp4 import MP4Cover
 logger = logging.getLogger("soundboard")
 
 from config import (
+    APP_TITLE,
     APP_VERSION,
     AUDIO_EXTENSIONS,
     EXTRACT_EMBEDDED_ART,
@@ -32,6 +35,7 @@ from config import (
     SOUNDS_DIR,
     STATIC_DIR,
     SW_JS,
+    get_client_config,
     settings,
 )
 
@@ -317,24 +321,40 @@ except (OSError, RuntimeError) as exc:
 # ==========================================
 # FastAPI Application
 # ==========================================
-app = FastAPI(title="Soundboard", version=APP_VERSION)
+app = FastAPI(title=APP_TITLE, version=APP_VERSION)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.mount("/media", StaticFiles(directory=SOUNDS_DIR), name="media")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
-@app.get("/", response_class=FileResponse)
+@app.get("/", response_class=HTMLResponse)
 async def index():
     if not INDEX_HTML.is_file():
         raise HTTPException(status_code=404, detail="index.html template not found")
-    return FileResponse(INDEX_HTML)
+    template_content = INDEX_HTML.read_text(encoding="utf-8")
+    client_config = get_client_config()
+    rendered = jinja2.Template(template_content).render(
+        app_title=settings.app_title,
+        client_config=client_config,
+        client_config_json=json.dumps(client_config),
+    )
+    return HTMLResponse(content=rendered)
 
 
 @app.get("/manifest.json")
 async def manifest():
-    if MANIFEST_JSON.is_file():
+    if not MANIFEST_JSON.is_file():
+        raise HTTPException(status_code=404, detail="manifest.json not found")
+    try:
+        data = json.loads(MANIFEST_JSON.read_text(encoding="utf-8"))
+        data["name"] = settings.app_title
+        data["short_name"] = settings.app_title
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/manifest+json",
+        )
+    except json.JSONDecodeError, OSError:
         return FileResponse(MANIFEST_JSON, media_type="application/manifest+json")
-    raise HTTPException(status_code=404, detail="manifest.json not found")
 
 
 @app.get("/sw.js")
@@ -397,13 +417,17 @@ async def api_get_cover(sound_id: str):
 @app.get("/api/sounds")
 async def api_get_sounds(reload: bool = False):
     """Return cached sounds metadata. If reload=True, rescans filesystem."""
-    return get_cached_sounds(force_reload=reload)
+    data = dict(get_cached_sounds(force_reload=reload))
+    data["config"] = get_client_config()
+    return data
 
 
 @app.api_route("/api/reload", methods=["GET", "POST"])
 async def api_reload():
     """Force rescan of sounds from filesystem and refresh cache."""
-    return get_cached_sounds(force_reload=True)
+    data = dict(get_cached_sounds(force_reload=True))
+    data["config"] = get_client_config()
+    return data
 
 
 if __name__ == "__main__":

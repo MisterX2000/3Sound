@@ -2,8 +2,8 @@
 <html lang="en" class="h-full bg-slate-950 text-slate-100">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Soundboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{{ app_title | default('Soundboard') }}</title>
 
   <!-- Favicon & PWA Icons -->
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -17,12 +17,17 @@
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Soundboard">
-  <meta name="application-name" content="Soundboard">
+  <meta name="apple-mobile-web-app-title" content="{{ app_title | default('Soundboard') }}">
+  <meta name="application-name" content="{{ app_title | default('Soundboard') }}">
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- Precompiled Static Tailwind CSS -->
   <link rel="stylesheet" href="/static/css/tailwind.min.css">
+
+  <!-- Soundboard Runtime Config -->
+  <script>
+    window.__SOUNDBOARD_CONFIG__ = {{ client_config_json | default('{}') | safe }};
+  </script>
 
   <!-- Soundboard Logic & Vendored Alpine.js -->
   <script src="/static/js/audio.js?v=0.3.0"></script>
@@ -101,7 +106,7 @@
             </div>
             <div class="min-w-0">
               <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                <span class="whitespace-nowrap">Soundboard</span>
+                <span class="whitespace-nowrap" x-text="appTitle">{{ app_title | default('Soundboard') }}</span>
                 <span x-text="displayedCountBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700 whitespace-nowrap shrink-0">
                   0 sounds
                 </span>
@@ -1020,7 +1025,7 @@
   <footer class="border-t border-slate-800/60 py-4 text-center text-xs text-slate-500">
     <p class="flex items-center justify-center flex-wrap gap-x-2 gap-y-1">
       <span class="inline-flex items-center gap-1.5">
-        <span>Soundboard</span>
+        <span x-text="appTitle">{{ app_title | default('Soundboard') }}</span>
         <a 
           :href="appVersion ? ('https://github.com/MisterX2000/3Sound/releases/tag/v' + appVersion) : 'https://github.com/MisterX2000/3Sound/releases'" 
           target="_blank" 

@@ -12,6 +12,9 @@ def test_api_sounds(client: TestClient):
     assert "folders" in data
     assert "categories" in data
     assert "version" in data
+    assert "config" in data
+    assert data["config"]["default_view_mode"] in ("flat", "folder")
+    assert isinstance(data["config"]["default_volume"], int)
     assert len(data["sounds"]) >= 3
 
 
@@ -20,6 +23,7 @@ def test_api_sounds_force_reload(client: TestClient):
     assert response.status_code == 200
     data = response.json()
     assert "sounds" in data
+    assert "config" in data
 
 
 def test_api_reload_endpoint(client: TestClient):
@@ -27,11 +31,13 @@ def test_api_reload_endpoint(client: TestClient):
     response_get = client.get("/api/reload")
     assert response_get.status_code == 200
     assert "sounds" in response_get.json()
+    assert "config" in response_get.json()
 
     # Test POST
     response_post = client.post("/api/reload")
     assert response_post.status_code == 200
     assert "sounds" in response_post.json()
+    assert "config" in response_post.json()
 
 
 def test_api_cover_disabled(client: TestClient):
@@ -76,10 +82,20 @@ def test_static_routes(client: TestClient):
     # Root index
     response = client.get("/")
     assert response.status_code == 200
+    html = response.text
+    assert (
+        'content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"'
+        in html
+    )
+    assert "window.__SOUNDBOARD_CONFIG__" in html
 
     # Manifest
     response_manifest = client.get("/manifest.json")
     assert response_manifest.status_code in (200, 404)
+    if response_manifest.status_code == 200:
+        manifest_data = response_manifest.json()
+        assert "name" in manifest_data
+        assert "short_name" in manifest_data
 
     # Service worker
     response_sw = client.get("/sw.js")

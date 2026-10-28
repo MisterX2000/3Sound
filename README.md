@@ -75,6 +75,27 @@ docker compose -f docker-compose.dev.yml up --build
 
 ---
 
+## ⚙️ Configuration
+
+Copy `.env.example` to `.env` to customize settings locally or configure them as environment variables in Docker:
+
+| Variable | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `SOUNDS_DIR` | `Path` | `./sounds` | Directory where audio files and folder artwork are stored |
+| `HOST` | `str` | `0.0.0.0` | Development server host |
+| `PORT` | `int` | `8000` | Development server port |
+| `APP_TITLE` | `str` | `Soundboard` | Branding title in header, browser tab, and PWA manifest |
+| `DEFAULT_VIEW_MODE` | `str` | `flat` | Default view on first open (`flat` or `folder`) |
+| `DEFAULT_VOLUME` | `int` | `80` | Default master playback volume percentage on first open (`0`-`100`) |
+| `DEFAULT_ALLOW_OVERLAP`| `bool` | `true` | Allow concurrent sound playback by default |
+| `DEFAULT_MUTED` | `bool` | `false` | Start soundboard muted by default |
+| `HIDE_EMPTY_FOLDERS` | `bool` | `true` | Hide directories containing zero playable audio files |
+| `EXTRACT_EMBEDDED_ART` | `bool` | `true` | Extract embedded ID3/FLAC/MP4 cover art on-the-fly |
+
+User changes made in the web UI (view mode, volume, mute, overlap) continue to persist in the browser's `localStorage` across visits.
+
+---
+
 ## 🎧 Adding Your Sounds & Images
 
 1. Create a subfolder inside `sounds/` for your category, e.g. `sounds/Memes/`.

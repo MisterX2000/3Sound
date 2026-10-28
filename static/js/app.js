@@ -1,16 +1,26 @@
 (function () {
   function soundboardComponent() {
+    const serverConfig = (typeof window !== 'undefined' && window.__SOUNDBOARD_CONFIG__) || {};
+    const defaultView = serverConfig.default_view_mode === 'folder' ? 'folder' : 'flat';
+    const defaultVol = typeof serverConfig.default_volume === 'number'
+      ? Math.max(0, Math.min(1, serverConfig.default_volume / 100))
+      : 0.8;
+    const defaultOverlap = serverConfig.default_allow_overlap !== false;
+    const defaultMuted = serverConfig.default_muted === true;
+    const appTitle = serverConfig.app_title || 'Soundboard';
+
     return {
       sounds: [],
       folders: {},
       categories: ['All'],
       activeCategory: 'All',
       currentFolder: '',
-      viewMode: 'flat',
+      viewMode: defaultView,
       searchQuery: '',
-      masterVolume: 0.8,
-      isMuted: false,
-      allowOverlap: true,
+      masterVolume: defaultVol,
+      isMuted: defaultMuted,
+      allowOverlap: defaultOverlap,
+      appTitle: appTitle,
       isLoading: true,
       isRescanning: false,
       appVersion: '',
@@ -267,6 +277,29 @@
         this.folders = data.folders || {};
         if (data.version) {
           this.appVersion = data.version;
+        }
+
+        if (data.config) {
+          if (data.config.app_title) {
+            this.appTitle = data.config.app_title;
+            document.title = data.config.app_title;
+          }
+          if (!localStorage.getItem('soundboard_view_mode') && data.config.default_view_mode) {
+            this.viewMode = data.config.default_view_mode;
+          }
+          if (localStorage.getItem('soundboard_volume') === null && typeof data.config.default_volume === 'number') {
+            const vol = Math.max(0, Math.min(1, data.config.default_volume / 100));
+            this.masterVolume = vol;
+            if (this.audio) this.audio.setVolume(vol);
+          }
+          if (localStorage.getItem('soundboard_overlap') === null && typeof data.config.default_allow_overlap === 'boolean') {
+            this.allowOverlap = data.config.default_allow_overlap;
+            if (this.audio) this.audio.setOverlap(this.allowOverlap);
+          }
+          if (localStorage.getItem('soundboard_muted') === null && typeof data.config.default_muted === 'boolean') {
+            this.isMuted = data.config.default_muted;
+            if (this.audio) this.audio.setMuted(this.isMuted);
+          }
         }
 
         // Precompute category counts map once in O(N)
