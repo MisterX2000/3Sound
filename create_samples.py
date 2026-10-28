@@ -1,9 +1,121 @@
 import math
 import struct
 import wave
+import zlib
 from pathlib import Path
 
+from mutagen.id3 import APIC
+from mutagen.wave import WAVE
+
 from config import SOUNDS_DIR
+
+
+def create_styled_png(
+    width: int = 160, height: int = 160, theme: str = "vinyl"
+) -> bytes:
+    """Generate a themed, high-quality PNG image in pure Python without third-party imaging dependencies."""
+    raw = bytearray()
+    cx, cy = width / 2.0, height / 2.0
+    r_max = width / 2.2
+
+    for y in range(height):
+        raw.append(0)  # Filter byte 0 (None)
+        ny = y / height
+        for x in range(width):
+            nx = x / width
+            dx, dy = x - cx, y - cy
+            dist = math.sqrt(dx * dx + dy * dy)
+
+            if theme == "vinyl":
+                # Vinyl record with groove rings and center label
+                if dist < 16:
+                    r, g, b = 244, 63, 94  # Bright rose label
+                elif dist < 24:
+                    r, g, b = 251, 146, 60  # Warm orange ring
+                elif dist < r_max:
+                    angle = math.atan2(dy, dx)
+                    reflection = math.sin(angle * 2) ** 4 * 0.25
+                    groove = (int(dist) % 4 == 0) * 0.15
+                    base = 0.08 + reflection + groove
+                    r = int(min(255, 30 + base * 220))
+                    g = int(min(255, 30 + base * 220))
+                    b = int(min(255, 45 + base * 220))
+                else:
+                    r, g, b = (
+                        int(15 + nx * 20),
+                        int(15 + ny * 20),
+                        int(30 + (nx + ny) * 20),
+                    )
+            elif theme == "lofi":
+                # Sunset gradient with segmented sun disc
+                sky_r = int(147 * (1 - ny) + 249 * ny)
+                sky_g = int(51 * (1 - ny) + 115 * ny)
+                sky_b = int(234 * (1 - ny) + 22 * ny)
+                if dist < 42:
+                    if y > cy and (y % 6) in (0, 1):
+                        r, g, b = sky_r, sky_g, sky_b
+                    else:
+                        r, g, b = 254, 240, 138  # Warm sun yellow
+                else:
+                    r, g, b = sky_r, sky_g, sky_b
+            elif theme == "arcade":
+                # Emerald tech badge / diamond
+                manhattan = abs(dx) + abs(dy)
+                if manhattan < 48:
+                    r, g, b = (240, 253, 244) if manhattan < 20 else (52, 211, 153)
+                else:
+                    r = int(15 + nx * 25)
+                    g = int(23 + (1 - ny) * 80)
+                    b = int(42 + ny * 60)
+            elif theme == "cassette":
+                # Retro tape body with spool holes
+                if abs(dx) < 50 and abs(dy) < 32:
+                    if (abs(dx - 22) < 12 and abs(dy) < 12) or (
+                        abs(dx + 22) < 12 and abs(dy) < 12
+                    ):
+                        r, g, b = 226, 232, 240  # Reel holes
+                    else:
+                        r, g, b = 30, 41, 59  # Body slate
+                else:
+                    r = int(99 * nx + 236 * (1 - nx))
+                    g = int(102 * ny + 72 * (1 - ny))
+                    b = int(241 * (1 - ny) + 153 * ny)
+            else:
+                r, g, b = 99, 102, 241
+
+            raw.extend([r, g, b])
+
+    compressed = zlib.compress(bytes(raw), 9)
+
+    def chunk(chunk_type: bytes, data: bytes) -> bytes:
+        length = struct.pack(">I", len(data))
+        crc = struct.pack(">I", zlib.crc32(chunk_type + data) & 0xFFFFFFFF)
+        return length + chunk_type + data + crc
+
+    header = b"\x89PNG\r\n\x1a\n"
+    ihdr = chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+    idat = chunk(b"IDAT", compressed)
+    iend = chunk(b"IEND", b"")
+    return header + ihdr + idat + iend
+
+
+def embed_artwork(
+    filepath: Path, image_bytes: bytes, mime: str = "image/png", desc: str = "Cover"
+):
+    """Embed ID3 APIC cover art chunk directly into an audio file using Mutagen."""
+    audio = WAVE(str(filepath))
+    if audio.tags is None:
+        audio.add_tags()
+    audio.tags.add(
+        APIC(
+            encoding=3,  # UTF-8
+            mime=mime,
+            type=3,  # Cover (front)
+            desc=desc,
+            data=image_bytes,
+        )
+    )
+    audio.save()
 
 
 def generate_wav(filepath: Path, duration_sec: float, generator_fn, sample_rate=44100):
@@ -250,6 +362,85 @@ def main():
         "#ec4899",
         '<path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>',
         "Space Melody (30s)",
+    )
+
+    # 12. General - Vinyl Scratch (Embedded ID3 Artwork)
+    # Notice: No separate .svg or .png file is created on disk to test on-the-fly artwork extraction!
+    def vinyl_scratch_fn(t, dur):
+        env = max(0.0, 1.0 - (t / dur) ** 1.5)
+        mod = math.sin(2 * math.pi * 3.5 * t)
+        carrier_freq = 600 + 400 * mod
+        tone = math.sin(2 * math.pi * carrier_freq * t)
+        crackle = (
+            math.sin(9431 * t)
+            * math.sin(3821 * t)
+            * (0.2 if (int(t * 80) % 3 == 0) else 0.05)
+        )
+        return (0.4 * tone + 0.25 * crackle) * env
+
+    vinyl_path = SOUNDS_DIR / "General" / "vinyl_scratch.wav"
+    generate_wav(vinyl_path, 1.2, vinyl_scratch_fn)
+    embed_artwork(
+        vinyl_path, create_styled_png(160, 160, theme="vinyl"), desc="Vinyl Record"
+    )
+
+    # 13. General - Cassette Rewind (Embedded ID3 Artwork)
+    def cassette_rewind_fn(t, dur):
+        if t > dur - 0.08:
+            click_t = t - (dur - 0.08)
+            return 0.5 * math.sin(2 * math.pi * 300 * click_t) * math.exp(-click_t * 80)
+        whir_freq = 1400 - 300 * (t / dur)
+        whir = math.sin(2 * math.pi * whir_freq * t) + 0.3 * math.sin(
+            2 * math.pi * (whir_freq * 2) * t
+        )
+        flutter = 1.0 + 0.15 * math.sin(2 * math.pi * 18 * t)
+        return 0.35 * whir * flutter
+
+    cassette_path = SOUNDS_DIR / "General" / "cassette_rewind.wav"
+    generate_wav(cassette_path, 1.0, cassette_rewind_fn)
+    embed_artwork(
+        cassette_path,
+        create_styled_png(160, 160, theme="cassette"),
+        desc="Cassette Tape",
+    )
+
+    # 14. Game SFX - Arcade Fanfare (Embedded ID3 Artwork)
+    def arcade_fanfare_fn(t, dur):
+        notes = [523.25, 659.25, 783.99, 1046.50]  # C5, E5, G5, C6
+        note_dur = dur / len(notes)
+        idx = min(len(notes) - 1, int(t / note_dur))
+        freq = notes[idx]
+        phase = t % note_dur
+        env = (
+            math.exp(-phase * 5.0)
+            if idx < len(notes) - 1
+            else max(0.0, 1.0 - phase / note_dur)
+        )
+        val = 0.35 if math.sin(2 * math.pi * freq * t) > 0 else -0.35
+        return val * env
+
+    fanfare_path = SOUNDS_DIR / "Game SFX" / "arcade_fanfare.wav"
+    generate_wav(fanfare_path, 1.2, arcade_fanfare_fn)
+    embed_artwork(
+        fanfare_path, create_styled_png(160, 160, theme="arcade"), desc="Arcade Fanfare"
+    )
+
+    # 15. Ambient - Lofi Chill (Embedded ID3 Artwork)
+    def lofi_chill_fn(t, dur):
+        env = min(1.0, t * 8.0) * max(0.0, 1.0 - (t / dur) ** 0.8)
+        vibrato = 1.0 + 0.02 * math.sin(2 * math.pi * 4.5 * t)
+        chord = (
+            0.30 * math.sin(2 * math.pi * 261.63 * vibrato * t)
+            + 0.25 * math.sin(2 * math.pi * 329.63 * vibrato * t)
+            + 0.20 * math.sin(2 * math.pi * 392.00 * vibrato * t)
+            + 0.15 * math.sin(2 * math.pi * 493.88 * vibrato * t)
+        )
+        return chord * env
+
+    lofi_path = SOUNDS_DIR / "Ambient" / "lofi_chill.wav"
+    generate_wav(lofi_path, 2.5, lofi_chill_fn)
+    embed_artwork(
+        lofi_path, create_styled_png(160, 160, theme="lofi"), desc="Lofi Chill"
     )
 
     # Folder Covers for Folder View

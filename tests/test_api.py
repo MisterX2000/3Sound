@@ -78,6 +78,26 @@ def test_api_cover_success(client: TestClient):
         assert "public, max-age=" in response.headers.get("cache-control", "")
 
 
+def test_api_cover_real_embedded_sound(client: TestClient, mock_sounds_env: Path):
+    import wave
+
+    from create_samples import create_styled_png, embed_artwork
+
+    target = mock_sounds_env / "General" / "embedded.wav"
+    with wave.open(str(target), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(44100)
+        w.writeframes(b"\x00\x00" * 44100)
+    embed_artwork(target, create_styled_png(64, 64, theme="vinyl"))
+
+    response = client.get("/api/cover/General/embedded.wav")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content.startswith(b"\x89PNG")
+    assert "public, max-age=" in response.headers.get("cache-control", "")
+
+
 def test_static_routes(client: TestClient):
     # Root index
     response = client.get("/")
