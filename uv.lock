@@ -697,6 +697,18 @@ wheels = [
 ]
 
 [[package]]
+name = "poethepoet"
+version = "0.49.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/7e/160d391368d359f7dd6dd647575499c395687beb4a6b2ebfbfbf8a20b817/poethepoet-0.49.0.tar.gz", hash = "sha256:256b72c057b5f60341bbe09498212939e558341fac4ab59d0ce478aca04f0d2a", size = 157750, upload-time = "2026-10-15T06:08:57.094Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/f5/a2404b9cb3c299cd148533d07e1a378b60aa4ae640c69fb522596ca157ae/poethepoet-0.49.0-py3-none-any.whl", hash = "sha256:97b456f3c52c9af75d4bc504e0f5cfee44545a84f446ba645a0a8f6a0131422f", size = 195985, upload-time = "2026-10-15T06:08:55.332Z" },
+]
+
+[[package]]
 name = "prompt-toolkit"
 version = "3.0.53"
 source = { registry = "https://pypi.org/simple" }
@@ -1042,6 +1054,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "bump-my-version" },
+    { name = "poethepoet" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -1057,6 +1070,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "bump-my-version", specifier = ">=1.6.7" },
+    { name = "poethepoet", specifier = ">=0.49.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.17.2" },

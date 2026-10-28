@@ -116,6 +116,25 @@ uv run update_vendor.py
 
 ---
 
+## 🛠️ Task Runner (Poe the Poet)
+
+The project includes preconfigured tasks via [Poe the Poet](https://poethepoet.natn.io/):
+
+| Task | Command | Description |
+| :--- | :--- | :--- |
+| `check` | `uv run poe check` | Run all quality checks (`lint`, `format-check`, `types`, `test`) |
+| `fix` | `uv run poe fix` | Automatically fix linting issues and reformat code |
+| `dev` | `uv run poe dev` | Start development server with auto-reload |
+| `start` / `serve` | `uv run poe start` | Start server at http://localhost:8000 |
+| `test` | `uv run poe test` | Run pytest test suite |
+| `coverage` | `uv run poe coverage` | Run pytest with terminal coverage report |
+| `outdated` | `uv run poe outdated` | Check for outdated dependencies (`uv tree --depth 1 --outdated`) |
+| `samples` | `uv run poe samples` | Generate synthetic sample sounds & embedded artwork |
+| `vendor` | `uv run poe vendor` | Download latest Alpine.js & Tailwind vendor assets |
+| `bump` | `uv run poe bump` | Bump version across `pyproject.toml` |
+
+---
+
 ## ⌨️ Keyboard Shortcuts
 
 - <kbd>Esc</kbd> — Stop all playing sounds immediately

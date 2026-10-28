@@ -15,6 +15,7 @@ package = false
 [dependency-groups]
 dev = [
     "bump-my-version>=1.6.7",
+    "poethepoet>=0.49.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.2",
@@ -54,3 +55,21 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+
+[tool.poe.tasks]
+start = { cmd = "python main.py", help = "Launch local soundboard server" }
+serve = { ref = "start", help = "Alias for start" }
+dev = { cmd = "fastapi dev main.py", help = "Launch development server with hot-reload" }
+lint = { cmd = "ruff check .", help = "Run Ruff linter" }
+lint-fix = { cmd = "ruff check --fix .", help = "Automatically fix Ruff lint issues" }
+format = { cmd = "ruff format .", help = "Format code with Ruff" }
+format-check = { cmd = "ruff format --check .", help = "Verify code formatting with Ruff" }
+types = { cmd = "ty check .", help = "Run static type checking with ty" }
+test = { cmd = "pytest", help = "Run automated test suite" }
+coverage = { cmd = "pytest --cov=. --cov-report=term-missing", help = "Run test suite with coverage report" }
+check = { sequence = ["lint", "format-check", "types", "test"], help = "Run all mandatory quality checks" }
+fix = { sequence = ["lint-fix", "format"], help = "Automatically fix lint and format issues" }
+samples = { cmd = "python create_samples.py", help = "Generate sample audio files & embedded artwork" }
+vendor = { cmd = "python update_vendor.py", help = "Download latest vendor Alpine.js and Tailwind CSS" }
+outdated = { cmd = "uv tree --depth 1 --outdated", help = "Check for outdated dependencies" }
+bump = { cmd = "bump-my-version bump", help = "Bump version across pyproject.toml" }

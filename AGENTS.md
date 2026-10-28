@@ -11,6 +11,20 @@
 
 ## Commands & Routines
 
+### Task Runner (Poe the Poet)
+```bash
+uv run poe check         # Run all quality checks (lint, format-check, types, test)
+uv run poe fix           # Automatically fix lint violations and reformat code
+uv run poe dev           # Launch development server with hot-reload
+uv run poe start         # Launch local server at http://localhost:8000
+uv run poe test          # Run automated test suite
+uv run poe coverage      # Run test suite with terminal coverage report
+uv run poe outdated      # Check for outdated dependencies (uv tree --depth 1 --outdated)
+uv run poe samples       # Generate test audio files & embedded ID3 artwork
+uv run poe vendor        # Download latest Alpine.js & Tailwind CSS vendor files
+uv run poe bump [patch|minor|major] # Bump version across pyproject.toml & sync
+```
+
 ### Environment & Installation
 ```bash
 uv sync --dev            # Install dependencies and development tools
@@ -86,8 +100,7 @@ All commits must strictly follow the **Conventional Commits v1.0.0** specificati
 - **Read-Only Media**: Never write generated files or cached artwork into the `sounds/` directory.
 - **Git Hygiene**: Never commit audio binaries or files inside `sounds/` (always ensure `sounds/` remains gitignored).
 - **Mandatory Pre-Commit Verification**: Before committing any changes, agents MUST run all quality gates and resolve any open issues or diagnostics:
-  1. `uv run ruff check .` (linting)
-  2. `uv run ruff format --check .` (formatting)
-  3. `uv run ty check .` (type checking)
-  4. `uv run pytest` (test suite & coverage)
+  ```bash
+  uv run poe check       # Sequentially runs ruff check, ruff format --check, ty check, and pytest
+  ```
   Fix all errors before proceeding with `git commit`.
