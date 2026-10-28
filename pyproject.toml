@@ -16,10 +16,10 @@ package = false
 dev = [
     "bump-my-version>=1.6.7",
     "poethepoet>=0.49.0",
-    "pytest>=9.1.1",
+    "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.2",
-    "ty>=0.0.92",
+    "ty>=0.0.94",
 ]
 
 [tool.bumpversion]
