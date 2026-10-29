@@ -667,6 +667,9 @@
     },
 
     get displayedCountBadge() {
+      if (this.isLoading) {
+        return 'Scanning...';
+      }
       if (this.showGlobalFallback) {
         const count = this.globalSearchResults.length;
         return `${count} global match${count === 1 ? '' : 'es'}`;

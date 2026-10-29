@@ -167,3 +167,18 @@ def test_favicon_missing_404(client: TestClient, tmp_path: Path):
     ):
         response = client.get("/favicon.ico")
         assert response.status_code == 404
+
+
+def test_index_shell_instant_loading(client: TestClient):
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.text
+    # Instant loading state, badge, and skeleton grid should be present in rendered HTML
+    assert "Scanning audio library..." in html
+    assert "Scanning..." in html
+    assert "animate-pulse" in html
+    assert '<body x-data="soundboard"' in html
+    assert (
+        '<body x-data="soundboard" class="min-h-full flex flex-col antialiased selection:bg-brand-500 selection:text-white" x-cloak>'
+        not in html
+    )

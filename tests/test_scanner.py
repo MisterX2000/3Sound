@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
@@ -5,6 +6,7 @@ from main import (
     find_folder_image,
     find_matching_image,
     get_cached_sounds,
+    get_sounds_async,
     scan_sounds,
 )
 
@@ -87,3 +89,15 @@ def test_get_cached_sounds(mock_sounds_env: Path, make_wav):
     data3 = get_cached_sounds(force_reload=True)
     assert len(data3["sounds"]) == initial_count + 1
     assert any(s["id"] == "General/laser.wav" for s in data3["sounds"])
+
+
+def test_get_sounds_async_deduplication(mock_sounds_env: Path):
+    async def _concurrent_runs():
+        t1 = asyncio.create_task(get_sounds_async(force_reload=True))
+        t2 = asyncio.create_task(get_sounds_async(force_reload=False))
+        t3 = asyncio.create_task(get_sounds_async(force_reload=True))
+        results = await asyncio.gather(t1, t2, t3)
+        assert len(results[0]["sounds"]) >= 3
+        assert results[0] == results[1] == results[2]
+
+    asyncio.run(_concurrent_runs())

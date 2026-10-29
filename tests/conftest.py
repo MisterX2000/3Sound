@@ -79,12 +79,14 @@ def mock_sounds_env(
     # Reset in-memory caches
     main._metadata_cache = None
     main._audio_meta_cache.clear()
+    main._scan_task = None
 
     yield sounds_root
 
     # Clean up caches after test
     main._metadata_cache = None
     main._audio_meta_cache.clear()
+    main._scan_task = None
 
 
 @pytest.fixture

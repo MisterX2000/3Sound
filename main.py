@@ -1,9 +1,11 @@
+import asyncio
 import base64
 import json
 import logging
 import os
 import urllib.parse
 import wave
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -301,26 +303,89 @@ def scan_sounds() -> dict[str, Any]:
 
 # In-memory metadata cache: stores strictly paths and lightweight descriptors (NOT audio/image bytes)
 _metadata_cache: dict[str, Any] | None = None
+_scan_task: asyncio.Task[dict[str, Any]] | None = None
+_scan_lock: asyncio.Lock | None = None
 
 
 def get_cached_sounds(force_reload: bool = False) -> dict[str, Any]:
-    """Retrieve sounds metadata from cache, rescanning filesystem only when force_reload is True or cache is empty."""
+    """Retrieve sounds metadata synchronously from cache, rescanning filesystem if empty or force_reload is True."""
     global _metadata_cache
     if _metadata_cache is None or force_reload:
         if force_reload:
             _audio_meta_cache.clear()
-        print(
-            f"[{'RELOAD' if force_reload else 'INIT'}] Scanning sounds directory from disk: {SOUNDS_DIR}"
+        logger.info(
+            "[%s] Scanning sounds directory from disk: %s",
+            "RELOAD" if force_reload else "INIT",
+            SOUNDS_DIR,
         )
         _metadata_cache = scan_sounds()
     return _metadata_cache
 
 
-# Pre-warm metadata cache on startup so the very first request is instantaneous
-try:
-    get_cached_sounds(force_reload=False)
-except (OSError, RuntimeError) as exc:
-    logger.warning("Failed to pre-warm metadata cache: %s", exc)
+def _get_scan_lock() -> asyncio.Lock:
+    global _scan_lock
+    if _scan_lock is None:
+        _scan_lock = asyncio.Lock()
+    return _scan_lock
+
+
+async def _run_scan_worker(force_reload: bool) -> dict[str, Any]:
+    global _metadata_cache, _scan_task
+    try:
+        if force_reload:
+            _audio_meta_cache.clear()
+        logger.info(
+            "[%s] Scanning sounds directory in background: %s",
+            "RELOAD" if force_reload else "INIT",
+            SOUNDS_DIR,
+        )
+        result = await asyncio.to_thread(scan_sounds)
+        _metadata_cache = result
+        return result
+    except Exception:
+        logger.exception("Error scanning sounds directory")
+        if _metadata_cache is None:
+            _metadata_cache = {
+                "categories": [],
+                "sounds": [],
+                "folders": {},
+                "version": APP_VERSION,
+            }
+        return _metadata_cache
+    finally:
+        _scan_task = None
+
+
+async def get_sounds_async(force_reload: bool = False) -> dict[str, Any]:
+    """Retrieve sounds metadata asynchronously.
+
+    If a scan is already running, concurrent callers await that active scan (deduplication).
+    If cache is empty or force_reload is True, an asynchronous scan task is started in a worker thread.
+    """
+    global _scan_task
+
+    if _metadata_cache is not None and not force_reload:
+        return _metadata_cache
+
+    lock = _get_scan_lock()
+    async with lock:
+        if _metadata_cache is not None and not force_reload:
+            return _metadata_cache
+
+        if _scan_task is not None and not _scan_task.done():
+            task = _scan_task
+        else:
+            task = asyncio.create_task(_run_scan_worker(force_reload=force_reload))
+            _scan_task = task
+
+    return await task
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager kicking off asynchronous library scan on startup without blocking server bind."""
+    asyncio.create_task(get_sounds_async(force_reload=False))
+    yield
 
 
 # ==========================================
@@ -335,7 +400,7 @@ class CachedStaticFiles(StaticFiles):
         return resp
 
 
-app = FastAPI(title=APP_TITLE, version=APP_VERSION)
+app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.mount("/media", CachedStaticFiles(directory=SOUNDS_DIR), name="media")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -430,8 +495,8 @@ async def api_get_cover(sound_id: str):
 
 @app.get("/api/sounds")
 async def api_get_sounds(reload: bool = False):
-    """Return cached sounds metadata. If reload=True, rescans filesystem."""
-    data = dict(get_cached_sounds(force_reload=reload))
+    """Return cached sounds metadata. If reload=True or scan in progress, awaits background scan."""
+    data = dict(await get_sounds_async(force_reload=reload))
     data["config"] = get_client_config()
     return data
 
@@ -439,7 +504,7 @@ async def api_get_sounds(reload: bool = False):
 @app.api_route("/api/reload", methods=["GET", "POST"])
 async def api_reload():
     """Force rescan of sounds from filesystem and refresh cache."""
-    data = dict(get_cached_sounds(force_reload=True))
+    data = dict(await get_sounds_async(force_reload=True))
     data["config"] = get_client_config()
     return data
 
