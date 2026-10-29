@@ -60,31 +60,40 @@ def download_vendor_file(filename: str, info: dict) -> bool:
 
 
 def compile_tailwind() -> bool:
-    """Recompile static/css/tailwind.min.css if npx is installed."""
-    npx_path = shutil.which("npx")
-    if not npx_path:
-        print("ℹ️  npx not found: skipping Tailwind CSS compilation.")
-        return True
-
+    """Recompile static/css/tailwind.min.css using pytailwindcss."""
     input_css = CSS_DIR / "input.css"
     output_css = CSS_DIR / "tailwind.min.css"
     if not input_css.is_file():
         print(f"ℹ️  {input_css} not found: skipping Tailwind CSS compilation.")
         return True
 
-    print("🎨 Compiling static/css/tailwind.min.css...")
-    try:
-        subprocess.run(
-            [
-                npx_path,
-                "-y",
-                "tailwindcss@3",
+    cmd: list[str] | None = None
+    if shutil.which("tailwindcss"):
+        cmd = ["tailwindcss", "-i", str(input_css), "-o", str(output_css), "--minify"]
+    else:
+        try:
+            import pytailwindcss  # noqa: F401
+
+            cmd = [
+                sys.executable,
+                "-m",
+                "pytailwindcss",
                 "-i",
                 str(input_css),
                 "-o",
                 str(output_css),
                 "--minify",
-            ],
+            ]
+        except ImportError:
+            print(
+                "ℹ️  pytailwindcss or tailwindcss CLI not found: skipping Tailwind CSS compilation."
+            )
+            return True
+
+    print("🎨 Compiling static/css/tailwind.min.css with Tailwind CSS...")
+    try:
+        subprocess.run(
+            cmd,
             cwd=BASE_DIR,
             capture_output=True,
             text=True,

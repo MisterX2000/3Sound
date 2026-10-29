@@ -16,6 +16,7 @@ package = false
 dev = [
     "bump-my-version>=1.6.7",
     "poethepoet>=0.49.0",
+    "pytailwindcss>=0.4.2",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.2",
@@ -57,9 +58,13 @@ show_missing = true
 skip_empty = true
 
 [tool.poe.tasks]
-start = { cmd = "python main.py", help = "Launch local soundboard server" }
+build-css = { cmd = "tailwindcss -i static/css/input.css -o static/css/tailwind.min.css --minify", help = "Build and minify Tailwind CSS" }
+watch-css = { cmd = "tailwindcss -i static/css/input.css -o static/css/tailwind.min.css --watch", help = "Watch and recompile Tailwind CSS on changes" }
+server-dev = { cmd = "fastapi dev main.py", help = "Launch development server with hot-reload" }
+server-prod = { cmd = "python main.py", help = "Launch production soundboard server" }
+dev = { parallel = ["server-dev", "watch-css"], help = "Launch development server and Tailwind CSS watcher in parallel" }
+start = { sequence = ["build-css", "server-prod"], help = "Build Tailwind CSS and launch soundboard server" }
 serve = { ref = "start", help = "Alias for start" }
-dev = { cmd = "fastapi dev main.py", help = "Launch development server with hot-reload" }
 lint = { cmd = "ruff check .", help = "Run Ruff linter" }
 lint-fix = { cmd = "ruff check --fix .", help = "Automatically fix Ruff lint issues" }
 format = { cmd = "ruff format .", help = "Format code with Ruff" }
@@ -67,7 +72,7 @@ format-check = { cmd = "ruff format --check .", help = "Verify code formatting w
 types = { cmd = "ty check .", help = "Run static type checking with ty" }
 test = { cmd = "pytest", help = "Run automated test suite" }
 coverage = { cmd = "pytest --cov=. --cov-report=term-missing", help = "Run test suite with coverage report" }
-check = { sequence = ["lint", "format-check", "types", "test"], help = "Run all mandatory quality checks" }
+check = { sequence = ["build-css", "lint", "format-check", "types", "test"], help = "Run all mandatory quality checks" }
 fix = { sequence = ["lint-fix", "format"], help = "Automatically fix lint and format issues" }
 samples = { cmd = "python create_samples.py", help = "Generate sample audio files & embedded artwork" }
 vendor = { cmd = "python update_vendor.py", help = "Download latest vendor Alpine.js and Tailwind CSS" }

@@ -64,9 +64,9 @@ docker compose -f docker-compose.dev.yml up --build
 
 2. **(Optional) Run with hot-reloading (development mode)**:
    ```bash
-   uv run fastapi dev main.py
+   uv run poe dev
    ```
-   > Powered by the modern FastAPI CLI with auto-reload, interactive docs, and diagnostics.
+   > Powered by Poe the Poet running the FastAPI dev server (with hot-reload and diagnostics) and the Tailwind CSS watcher simultaneously in parallel — completely Python-driven with zero Node.js/npm dependencies.
 
 3. **(Optional) Generate sample sounds**:
    ```bash
@@ -106,12 +106,17 @@ User changes made in the web UI (view mode, volume, mute, overlap) continue to p
 
 ---
 
-## 🔄 Updating Vendor Libraries
+## 🔄 Updating Vendor Libraries & Styles
 
-The application has zero build steps and runs 100% locally/offline with vendored Alpine.js and Tailwind CSS. To refresh or update these libraries from upstream:
+The application runs 100% locally and offline with vendored Alpine.js and Tailwind CSS compiled via `pytailwindcss` (zero Node.js or npm dependencies). To refresh vendor assets or recompile styles:
 
 ```bash
 uv run update_vendor.py
+```
+
+Or recompile Tailwind CSS directly:
+```bash
+uv run poe build-css
 ```
 
 ---
@@ -122,15 +127,17 @@ The project includes preconfigured tasks via [Poe the Poet](https://poethepoet.n
 
 | Task | Command | Description |
 | :--- | :--- | :--- |
-| `check` | `uv run poe check` | Run all quality checks (`lint`, `format-check`, `types`, `test`) |
+| `check` | `uv run poe check` | Run all quality checks (`build-css`, `lint`, `format-check`, `types`, `test`) |
 | `fix` | `uv run poe fix` | Automatically fix linting issues and reformat code |
-| `dev` | `uv run poe dev` | Start development server with auto-reload |
-| `start` / `serve` | `uv run poe start` | Start server at http://localhost:8000 |
+| `dev` | `uv run poe dev` | Start dev server and Tailwind CSS watcher in parallel |
+| `start` / `serve` | `uv run poe start` | Build Tailwind CSS and start server at http://localhost:8000 |
+| `build-css` | `uv run poe build-css` | Compile and minify Tailwind CSS v4 |
+| `watch-css` | `uv run poe watch-css` | Watch and recompile Tailwind CSS on file changes |
 | `test` | `uv run poe test` | Run pytest test suite |
 | `coverage` | `uv run poe coverage` | Run pytest with terminal coverage report |
 | `outdated` | `uv run poe outdated` | Check for outdated dependencies (`uv tree --depth 1 --outdated`) |
 | `samples` | `uv run poe samples` | Generate synthetic sample sounds & embedded artwork |
-| `vendor` | `uv run poe vendor` | Download latest Alpine.js & Tailwind vendor assets |
+| `vendor` | `uv run poe vendor` | Download latest Alpine.js & recompile Tailwind CSS |
 | `bump` | `uv run poe bump` | Bump version across `pyproject.toml` |
 
 ---
