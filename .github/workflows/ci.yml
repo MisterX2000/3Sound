@@ -72,3 +72,49 @@ jobs:
             echo "### Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
             cat coverage.md >> $GITHUB_STEP_SUMMARY
           fi
+
+  release:
+    name: Create GitHub Release
+    needs: [lint, test]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract Release Notes from CHANGELOG.md
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python3 -c "
+          import re, sys
+          version = sys.argv[1]
+          changelog = open('CHANGELOG.md', 'r', encoding='utf-8').read()
+          pattern = rf'## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n## \[|\n\[.*?\]:|\Z)'
+          match = re.search(pattern, changelog, re.DOTALL)
+          if match:
+              notes = match.group(1).strip()
+              with open('release_notes.md', 'w', encoding='utf-8') as f:
+                  f.write(notes + '\n')
+              print(f'Extracted release notes for version {version}:')
+              print(notes)
+          else:
+              print(f'No matching release notes found in CHANGELOG.md for version {version}')
+          " "$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -s release_notes.md ]; then
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release_notes.md \
+              --generate-notes
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi

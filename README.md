@@ -148,6 +148,12 @@ The project includes preconfigured tasks via [Poe the Poet](https://poethepoet.n
 
 ---
 
+## 📝 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for full release notes and version history.
+
+---
+
 ## ⌨️ Keyboard Shortcuts
 
 - <kbd>Esc</kbd> — Stop all playing sounds immediately
