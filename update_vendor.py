@@ -7,6 +7,7 @@ Usage:
     uv run update_vendor.py
 """
 
+import hashlib
 import subprocess
 import sys
 import urllib.error
@@ -19,7 +20,7 @@ CSS_DIR = BASE_DIR / "static" / "css"
 
 VENDOR_SOURCES = {
     "alpine.min.js": {
-        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js",
+        "url": "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
         "description": "Alpine.js (Declarative reactive UI framework)",
     },
 }
@@ -28,7 +29,7 @@ USER_AGENT = "Mozilla/5.0 (compatible; SoundboardVendorUpdater/1.0)"
 
 
 def download_vendor_file(filename: str, info: dict) -> bool:
-    """Download vendor file from URL and save to static/vendor/."""
+    """Download vendor file from URL and save to static/vendor/ if hash changed."""
     url = info["url"]
     desc = info["description"]
     dest_path = VENDOR_DIR / filename
@@ -43,14 +44,31 @@ def download_vendor_file(filename: str, info: dict) -> bool:
                 print(f"   ❌ HTTP Error: Received status code {response.status}")
                 return False
 
+            final_url = response.geturl()
+            if final_url != url:
+                print(f"   Resolved URL: {final_url}")
+
             content = response.read()
             if not content:
                 print("   ❌ Error: Downloaded content is empty")
                 return False
 
-            dest_path.write_bytes(content)
+            new_hash = hashlib.sha256(content).hexdigest()
             size_kb = len(content) / 1024
-            print(f"   ✅ Saved {dest_path.name} ({size_kb:.1f} KB)")
+
+            if dest_path.is_file():
+                old_hash = hashlib.sha256(dest_path.read_bytes()).hexdigest()
+                if old_hash == new_hash:
+                    print(
+                        f"   ℹ️  {filename} is already up to date (SHA-256: {new_hash[:12]}..., {size_kb:.1f} KB)"
+                    )
+                    return True
+                print(f"   🔄 Hash changed: {old_hash[:12]}... → {new_hash[:12]}...")
+
+            dest_path.write_bytes(content)
+            print(
+                f"   ✅ Saved {dest_path.name} ({size_kb:.1f} KB, SHA-256: {new_hash[:12]}...)"
+            )
             return True
 
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
