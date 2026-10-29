@@ -7,7 +7,6 @@ Usage:
     uv run update_vendor.py
 """
 
-import shutil
 import subprocess
 import sys
 import urllib.error
@@ -67,43 +66,24 @@ def compile_tailwind() -> bool:
         print(f"ℹ️  {input_css} not found: skipping Tailwind CSS compilation.")
         return True
 
-    cmd: list[str] | None = None
-    if shutil.which("tailwindcss"):
-        cmd = ["tailwindcss", "-i", str(input_css), "-o", str(output_css), "--minify"]
-    else:
-        try:
-            import pytailwindcss  # noqa: F401
-
-            cmd = [
-                sys.executable,
-                "-m",
-                "pytailwindcss",
-                "-i",
-                str(input_css),
-                "-o",
-                str(output_css),
-                "--minify",
-            ]
-        except ImportError:
-            print(
-                "ℹ️  pytailwindcss or tailwindcss CLI not found: skipping Tailwind CSS compilation."
-            )
-            return True
-
     print("🎨 Compiling static/css/tailwind.min.css with Tailwind CSS...")
     try:
-        subprocess.run(
-            cmd,
+        import pytailwindcss
+        from pytailwindcss.exceptions import PyTailwindCssException
+
+        pytailwindcss.run(
+            ["-i", str(input_css), "-o", str(output_css), "--minify"],
             cwd=BASE_DIR,
-            capture_output=True,
-            text=True,
-            check=True,
+            auto_install=True,
         )
         size_kb = output_css.stat().st_size / 1024
         print(f"   ✅ Compiled {output_css.name} ({size_kb:.1f} KB)")
         return True
-    except subprocess.CalledProcessError as exc:
-        print(f"   ❌ Tailwind compilation failed: {exc.stderr}")
+    except ImportError:
+        print("ℹ️  pytailwindcss not installed: skipping Tailwind CSS compilation.")
+        return True
+    except (subprocess.CalledProcessError, PyTailwindCssException, OSError) as exc:
+        print(f"   ❌ Tailwind compilation failed: {exc}")
         return False
 
 
