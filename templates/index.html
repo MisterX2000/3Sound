@@ -141,7 +141,7 @@
           <button 
             x-cloak
             x-show="searchQuery" 
-            @click="searchQuery = ''" 
+            @click="clearSearch()" 
             class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 cursor-pointer"
             title="Clear search"
           >
@@ -374,50 +374,32 @@
     <template x-if="!isLoading && viewMode === 'flat' && sounds.length > 0">
       <div class="space-y-8">
         
-        <!-- Query returned no results anywhere -->
-        <div x-show="filteredFlatSounds.length === 0 && globalSearchResults.length === 0" class="py-20 text-center text-slate-400">
+        <!-- Query returned no results -->
+        <div x-show="filteredFlatSounds.length === 0" class="py-20 text-center text-slate-400">
           <p class="text-base font-semibold">No sounds found matching "<span x-text="searchQuery"></span>"</p>
           <button 
-            @click="searchQuery = ''"
+            @click="clearSearch()"
             class="mt-3 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer"
           >
             Clear search query
           </button>
         </div>
 
-        <!-- No results in active category, but global matches exist -->
-        <div x-show="filteredFlatSounds.length === 0 && globalSearchResults.length > 0" class="space-y-6">
-          <div class="py-6 px-4 text-center rounded-2xl bg-slate-900/60 border border-dashed border-slate-800/80 max-w-lg mx-auto">
-            <p class="text-sm text-slate-300">
-              No sounds found in category <span class="font-semibold text-white px-2 py-0.5 rounded bg-slate-800 border border-slate-700" x-text="activeCategory"></span> matching "<span class="text-indigo-300 font-medium" x-text="searchQuery"></span>"
-            </p>
-            <button 
-              type="button"
-              @click="selectCategory('All')"
-              class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-indigo-300 hover:text-white transition cursor-pointer shadow-sm"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-              </svg>
-              <span>Switch to All Categories</span>
-            </button>
-          </div>
-
-          <!-- Global Results Section in Flat View -->
+        <!-- Categories & Progressive Grids -->
+        <template x-for="group in flatCategoryGroups" :key="group.name">
           <section class="space-y-3">
-            <div class="flex items-center gap-2 text-sm font-semibold text-slate-300 border-b border-slate-800/80 pb-2">
+            <!-- Section header -->
+            <div x-show="activeCategory === 'All' || searchQuery" class="flex items-center gap-2 text-sm font-semibold text-slate-300 border-b border-slate-800/80 pb-2">
               <svg class="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                <line x1="2" y1="12" x2="22" y2="12" stroke-width="2"/>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-width="2"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
-              <span>Global Results</span>
-              <span class="text-xs text-slate-500 font-normal">(<span x-text="globalSearchResults.length"></span> found across other categories)</span>
+              <span x-text="group.name"></span>
+              <span class="text-xs text-slate-500 font-normal">(<span x-text="group.sounds.length"></span>)</span>
             </div>
 
             <!-- Sound Cards Grid -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              <template x-for="sound in globalSearchResults" :key="'global-flat-' + sound.id">
+              <template x-for="sound in group.sounds" :key="sound.id">
                 <div 
                   role="button"
                   tabindex="0"
@@ -523,118 +505,6 @@
               </template>
             </div>
           </section>
-        </div>
-
-        <!-- Categories & Progressive Grids -->
-        <template x-for="group in flatCategoryGroups" :key="group.name">
-          <section class="space-y-3">
-            <!-- Section header -->
-            <div x-show="activeCategory === 'All'" class="flex items-center gap-2 text-sm font-semibold text-slate-300 border-b border-slate-800/80 pb-2">
-              <svg class="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-              </svg>
-              <span x-text="group.name"></span>
-              <span class="text-xs text-slate-500 font-normal">(<span x-text="group.sounds.length"></span>)</span>
-            </div>
-
-            <!-- Sound Cards Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              <template x-for="sound in group.sounds" :key="sound.id">
-                <div 
-                  role="button"
-                  tabindex="0"
-                  @click="handleSoundCardClick(sound, $event)"
-                  @keydown.enter.prevent="handleSoundCardClick(sound, $event)"
-                  @keydown.space.prevent="handleSoundCardClick(sound, $event)"
-                  :class="{
-                    'ring-2 ring-emerald-500 border-emerald-500 bg-slate-800/80': isPlaying(sound.id) && isLooping(sound.id),
-                    'ring-2 ring-brand-500 border-brand-500 bg-slate-800/80': isPlaying(sound.id) && !isLooping(sound.id)
-                  }"
-                  class="sound-card sound-card-deferred group relative flex flex-col text-left rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-brand-500/50 shadow-md hover:shadow-xl hover:shadow-brand-500/10 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 overflow-hidden cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50"
-                >
-                  <!-- Artwork Container -->
-                  <div class="relative w-full aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center">
-                    <img x-show="sound.image_url" :src="sound.image_url" :alt="sound.title" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                    <div x-show="!sound.image_url" class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 text-slate-600 group-hover:text-brand-400 group-hover:from-slate-900 group-hover:to-brand-950/20 transition-all">
-                      <svg class="w-10 h-10 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
-                    </div>
-
-                    <!-- Gradient Overlay -->
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent pointer-events-none"></div>
-
-                    <!-- Top Left Badges: Format & Loop Button -->
-                    <div class="absolute top-2 left-2 flex items-center gap-1.5 z-20">
-                      <span x-text="sound.format" class="px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono uppercase text-slate-300 pointer-events-none select-none"></span>
-                      <button 
-                        type="button" 
-                        @click.stop="toggleSoundLoop(sound)"
-                        :class="isLooping(sound.id) ? 'bg-emerald-500/90 text-white border-emerald-400 shadow-md shadow-emerald-500/40 ring-1 ring-emerald-400' : 'bg-slate-950/80 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-500'"
-                        :title="isLooping(sound.id) ? 'Looping enabled (Click to toggle)' : 'Enable loop'"
-                        class="loop-toggle-btn px-1.5 py-0.5 rounded backdrop-blur-md border text-[10px] font-mono flex items-center gap-1 transition-all duration-200 cursor-pointer"
-                      >
-                        <svg class="w-3 h-3 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        <span x-text="isLooping(sound.id) ? 'LOOP' : '1x'" class="loop-label text-[9px] font-bold tracking-wider"></span>
-                      </button>
-                    </div>
-
-                    <!-- Duration Badge (Top Right) -->
-                    <div class="duration-badge absolute top-2 right-2 px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono text-slate-200 flex items-center gap-1 z-10 pointer-events-none">
-                      <svg class="w-2.5 h-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                        <path stroke-width="2" d="M12 6v6l4 2"/>
-                      </svg>
-                      <span x-text="sound.duration_formatted || formatTime(sound.duration)"></span>
-                    </div>
-
-                    <!-- Play/Playing Status Overlay Icon -->
-                    <div :class="isPlaying(sound.id) ? 'opacity-100' : 'opacity-0'" class="status-overlay absolute inset-0 flex items-center justify-center group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px] pointer-events-none">
-                      <button
-                        type="button"
-                        x-show="isPlaying(sound.id)"
-                        @click.stop="stopSound(sound.id)"
-                        title="Stop playback"
-                        :class="isLooping(sound.id) ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/50' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/50'"
-                        class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 hover:scale-105 active:scale-95 transition-all pointer-events-auto cursor-pointer"
-                      >
-                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                          <rect x="6" y="5" width="4" height="14" rx="1"></rect>
-                          <rect x="14" y="5" width="4" height="14" rx="1"></rect>
-                        </svg>
-                      </button>
-                      <div 
-                        x-show="!isPlaying(sound.id)"
-                        class="play-icon-box w-10 h-10 rounded-full bg-brand-600 shadow-brand-600/50 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform pointer-events-none"
-                      >
-                        <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Info Card Body -->
-                  <div class="p-3 w-full flex-1 flex flex-col justify-between">
-                    <div>
-                      <h4 x-text="sound.title" :title="sound.title" class="font-semibold text-sm text-slate-100 group-hover:text-brand-300 transition-colors line-clamp-1"></h4>
-                      <p x-text="sound.category" class="text-[11px] text-slate-400 truncate mt-0.5"></p>
-                    </div>
-                  </div>
-
-                  <!-- GPU-Accelerated Audio Progress Bar -->
-                  <div class="progress-bar-container w-full h-1 bg-slate-800 overflow-hidden relative">
-                    <div 
-                      :data-progress-id="sound.id"
-                      class="progress-bar w-full h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none"
-                    ></div>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </section>
         </template>
 
         <!-- Infinite Scroll Sentinel & Loader -->
@@ -667,18 +537,18 @@
               </svg>
             </div>
             <div>
-              <h2 x-text="currentFolderObj.name || 'All Sounds'" class="text-base font-bold text-white leading-tight">All Sounds</h2>
-              <p x-text="`${displayedSubfolders.length} ${displayedSubfolders.length === 1 ? 'folder' : 'folders'} • ${directFolderSounds.length} ${directFolderSounds.length === 1 ? 'sound' : 'sounds'}`" class="text-xs text-slate-400">0 folders &bull; 0 sounds</p>
+              <h2 x-text="searchQuery ? `Search Results: \"${searchQuery}\"` : (currentFolderObj.name || 'All Sounds')" class="text-base font-bold text-white leading-tight">All Sounds</h2>
+              <p x-text="`${displayedSubfolders.length} ${displayedSubfolders.length === 1 ? 'folder' : 'folders'} • ${searchQuery ? searchSounds.length : displayedFolderSounds.length} ${(searchQuery ? searchSounds.length : displayedFolderSounds.length) === 1 ? 'sound' : 'sounds'}`" class="text-xs text-slate-400">0 folders &bull; 0 sounds</p>
             </div>
           </div>
         </div>
 
-        <!-- Query returned no results anywhere on soundboard -->
-        <div x-show="searchQuery && displayedSubfolders.length === 0 && directFolderSounds.length === 0 && globalSearchResults.length === 0" class="py-20 text-center text-slate-400">
-          <p class="text-base font-semibold">No sounds found matching "<span x-text="searchQuery"></span>"</p>
+        <!-- Query returned no results -->
+        <div x-show="searchQuery && displayedSubfolders.length === 0 && displayedFolderSounds.length === 0" class="py-20 text-center text-slate-400">
+          <p class="text-base font-semibold">No sounds or folders found matching "<span x-text="searchQuery"></span>"</p>
           <div class="mt-3 flex items-center justify-center gap-2">
             <button 
-              @click="searchQuery = ''"
+              @click="clearSearch()"
               class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer"
             >
               Clear search query
@@ -688,153 +558,9 @@
               @click="openFolder('')"
               class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
             >
-              Search from Home
+              Return to Home
             </button>
           </div>
-        </div>
-
-        <!-- No results in current folder, but global matches exist -->
-        <div x-show="searchQuery && displayedSubfolders.length === 0 && directFolderSounds.length === 0 && globalSearchResults.length > 0" class="space-y-6">
-          <div class="py-6 px-4 text-center rounded-2xl bg-slate-900/60 border border-dashed border-slate-800/80 max-w-lg mx-auto">
-            <p class="text-sm text-slate-300">
-              No sounds or subfolders in <span class="font-semibold text-white px-2 py-0.5 rounded bg-slate-800 border border-slate-700" x-text="currentFolder || 'Home'"></span> matching "<span class="text-indigo-300 font-medium" x-text="searchQuery"></span>"
-            </p>
-            <button 
-              x-show="currentFolder"
-              type="button"
-              @click="openFolder('')"
-              class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-indigo-300 hover:text-white transition cursor-pointer shadow-sm"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-              </svg>
-              <span>Return to Root Folder</span>
-            </button>
-          </div>
-
-          <!-- Global Results Section in Folder View -->
-          <section class="space-y-3">
-            <div class="flex items-center gap-2 text-sm font-semibold text-slate-300 border-b border-slate-800/80 pb-2">
-              <svg class="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                <line x1="2" y1="12" x2="22" y2="12" stroke-width="2"/>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-width="2"/>
-              </svg>
-              <span>Global Results</span>
-              <span class="text-xs text-slate-500 font-normal">(<span x-text="globalSearchResults.length"></span> found across other folders)</span>
-            </div>
-
-            <!-- Sound Cards Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              <template x-for="sound in globalSearchResults" :key="'global-folder-' + sound.id">
-                <div 
-                  role="button"
-                  tabindex="0"
-                  @click="handleSoundCardClick(sound, $event)"
-                  @keydown.enter.prevent="handleSoundCardClick(sound, $event)"
-                  @keydown.space.prevent="handleSoundCardClick(sound, $event)"
-                  :class="{
-                    'ring-2 ring-emerald-500 border-emerald-500 bg-slate-800/80': isPlaying(sound.id) && isLooping(sound.id),
-                    'ring-2 ring-brand-500 border-brand-500 bg-slate-800/80': isPlaying(sound.id) && !isLooping(sound.id)
-                  }"
-                  class="sound-card sound-card-deferred group relative flex flex-col text-left rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-brand-500/50 shadow-md hover:shadow-xl hover:shadow-brand-500/10 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 overflow-hidden cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50"
-                >
-                  <!-- Artwork Container -->
-                  <div class="relative w-full aspect-[4/3] bg-slate-950 overflow-hidden flex items-center justify-center">
-                    <img x-show="sound.image_url" :src="sound.image_url" :alt="sound.title" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                    <div x-show="!sound.image_url" class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 text-slate-600 group-hover:text-brand-400 group-hover:from-slate-900 group-hover:to-brand-950/20 transition-all">
-                      <svg class="w-10 h-10 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
-                    </div>
-
-                    <!-- Gradient Overlay -->
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent pointer-events-none"></div>
-
-                    <!-- Top Left Badges: Format & Loop Button -->
-                    <div class="absolute top-2 left-2 flex items-center gap-1.5 z-20">
-                      <span x-text="sound.format" class="px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono uppercase text-slate-300 pointer-events-none select-none"></span>
-                      <button 
-                        type="button" 
-                        @click.stop="toggleSoundLoop(sound)"
-                        :class="isLooping(sound.id) ? 'bg-emerald-500/90 text-white border-emerald-400 shadow-md shadow-emerald-500/40 ring-1 ring-emerald-400' : 'bg-slate-950/80 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-500'"
-                        :title="isLooping(sound.id) ? 'Looping enabled (Click to toggle)' : 'Enable loop'"
-                        class="loop-toggle-btn px-1.5 py-0.5 rounded backdrop-blur-md border text-[10px] font-mono flex items-center gap-1 transition-all duration-200 cursor-pointer"
-                      >
-                        <svg class="w-3 h-3 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        <span x-text="isLooping(sound.id) ? 'LOOP' : '1x'" class="loop-label text-[9px] font-bold tracking-wider"></span>
-                      </button>
-                    </div>
-
-                    <!-- Duration Badge (Top Right) -->
-                    <div class="duration-badge absolute top-2 right-2 px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono text-slate-200 flex items-center gap-1 z-10 pointer-events-none">
-                      <svg class="w-2.5 h-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                        <path stroke-width="2" d="M12 6v6l4 2"/>
-                      </svg>
-                      <span x-text="sound.duration_formatted || formatTime(sound.duration)"></span>
-                    </div>
-
-                    <!-- Play/Playing Status Overlay Icon -->
-                    <div :class="isPlaying(sound.id) ? 'opacity-100' : 'opacity-0'" class="status-overlay absolute inset-0 flex items-center justify-center group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-[1px] pointer-events-none">
-                      <button
-                        type="button"
-                        x-show="isPlaying(sound.id)"
-                        @click.stop="stopSound(sound.id)"
-                        title="Stop playback"
-                        :class="isLooping(sound.id) ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/50' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/50'"
-                        class="play-icon-box w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 hover:scale-105 active:scale-95 transition-all pointer-events-auto cursor-pointer"
-                      >
-                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                          <rect x="6" y="5" width="4" height="14" rx="1"></rect>
-                          <rect x="14" y="5" width="4" height="14" rx="1"></rect>
-                        </svg>
-                      </button>
-                      <div 
-                        x-show="!isPlaying(sound.id)"
-                        class="play-icon-box w-10 h-10 rounded-full bg-brand-600 shadow-brand-600/50 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform pointer-events-none"
-                      >
-                        <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Info Card Body with Jump to Folder link -->
-                  <div class="p-3 w-full flex-1 flex flex-col justify-between">
-                    <div>
-                      <h4 x-text="sound.title" :title="sound.title" class="font-semibold text-sm text-slate-100 group-hover:text-brand-300 transition-colors line-clamp-1"></h4>
-                      <button 
-                        type="button"
-                        @click.stop="jumpToFolder(sound.folder)"
-                        class="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 truncate mt-0.5"
-                        title="Open this folder in soundboard"
-                      >
-                        <svg class="w-2.5 h-2.5 opacity-70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-                        </svg>
-                        <span x-text="sound.folder || 'Home'"></span>
-                        <svg class="w-2.5 h-2.5 opacity-70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- GPU-Accelerated Audio Progress Bar -->
-                  <div class="progress-bar-container w-full h-1 bg-slate-800 overflow-hidden relative">
-                    <div 
-                      :data-progress-id="sound.id"
-                      class="progress-bar w-full h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-cyan-400 pointer-events-none"
-                    ></div>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </section>
         </div>
 
         <!-- Subfolders Section -->
@@ -843,7 +569,7 @@
             <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
             </svg>
-            <span>Folders</span>
+            <span x-text="searchQuery ? 'Matching Folders' : 'Folders'"></span>
             <span class="text-[11px] font-normal text-slate-500">(<span x-text="displayedSubfolders.length"></span>)</span>
           </h3>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -894,7 +620,7 @@
                 <!-- Info Body -->
                 <div class="p-3 w-full flex-1 flex flex-col justify-between">
                   <div>
-                    <h4 x-text="subfolder.name" :title="subfolder.name" class="font-semibold text-sm text-slate-100 group-hover:text-indigo-300 transition-colors line-clamp-1"></h4>
+                    <h4 x-text="searchQuery ? (subfolder.path || subfolder.name) : subfolder.name" :title="searchQuery ? (subfolder.path || subfolder.name) : subfolder.name" class="font-semibold text-sm text-slate-100 group-hover:text-indigo-300 transition-colors line-clamp-1"></h4>
                     <p 
                       x-text="(() => {
                         const parts = [];
@@ -919,8 +645,8 @@
             <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
             </svg>
-            <span>Sounds</span>
-            <span class="text-[11px] font-normal text-slate-500">(<span x-text="directFolderSounds.length"></span>)</span>
+            <span x-text="searchQuery ? 'Matching Sounds' : 'Sounds'">Sounds</span>
+            <span class="text-[11px] font-normal text-slate-500">(<span x-text="searchQuery ? searchSounds.length : directFolderSounds.length"></span>)</span>
           </h3>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             <template x-for="sound in directFolderSounds" :key="sound.id">
@@ -1000,11 +726,24 @@
                   </div>
                 </div>
 
-                <!-- Info Card Body -->
+                <!-- Info Card Body with Jump to Folder link -->
                 <div class="p-3 w-full flex-1 flex flex-col justify-between">
                   <div>
                     <h4 x-text="sound.title" :title="sound.title" class="font-semibold text-sm text-slate-100 group-hover:text-brand-300 transition-colors line-clamp-1"></h4>
-                    <p x-text="sound.category" class="text-[11px] text-slate-400 truncate mt-0.5"></p>
+                    <button 
+                      type="button"
+                      @click.stop="jumpToFolder(sound.folder)"
+                      class="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 truncate mt-0.5"
+                      title="Open this folder in soundboard"
+                    >
+                      <svg class="w-2.5 h-2.5 opacity-70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                      </svg>
+                      <span x-text="sound.folder || 'Home'"></span>
+                      <svg class="w-2.5 h-2.5 opacity-70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
 
@@ -1017,6 +756,20 @@
                 </div>
               </div>
             </template>
+          </div>
+
+          <!-- Infinite Scroll Sentinel & Loader for Folder Search -->
+          <div id="infinite-scroll-sentinel-folder" class="py-6 flex flex-col items-center justify-center text-slate-500">
+            <div x-show="hasMoreFolderSounds" class="flex items-center gap-2 text-xs">
+              <svg class="animate-spin h-4 w-4 text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>Loading more sounds...</span>
+            </div>
+            <div x-show="searchQuery && !hasMoreFolderSounds && searchSounds.length > 80" class="text-xs text-slate-600">
+              All <span x-text="searchSounds.length"></span> matching sounds loaded
+            </div>
           </div>
         </div>
 

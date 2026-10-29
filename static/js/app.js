@@ -111,16 +111,24 @@
       window.addEventListener('hashchange', () => {
         this.syncFromHash(window.location.hash);
       });
+      window.addEventListener('popstate', () => {
+        this.syncFromHash(window.location.hash);
+      });
 
-      // Reset render limit when search changes
+      // Reset render limit and update URL hash when search changes
       this.$watch('searchQuery', () => {
         this.renderLimit = 80;
+        this.updateHash(true);
       });
 
       // Global keyboard shortcuts
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-          this.stopAllSounds();
+          if (this.searchQuery && document.activeElement?.id === 'search-input') {
+            this.clearSearch();
+          } else {
+            this.stopAllSounds();
+          }
         } else if (
           e.key === '/' &&
           document.activeElement?.tagName !== 'INPUT' &&
@@ -161,16 +169,26 @@
       );
 
       this.$nextTick(() => {
-        const sentinel = document.getElementById('infinite-scroll-sentinel');
-        if (sentinel && this.infiniteScrollObserver) {
-          this.infiniteScrollObserver.observe(sentinel);
+        const flatSentinel = document.getElementById('infinite-scroll-sentinel');
+        if (flatSentinel && this.infiniteScrollObserver) {
+          this.infiniteScrollObserver.observe(flatSentinel);
+        }
+        const folderSentinel = document.getElementById('infinite-scroll-sentinel-folder');
+        if (folderSentinel && this.infiniteScrollObserver) {
+          this.infiniteScrollObserver.observe(folderSentinel);
         }
       });
     },
 
     loadMore() {
-      if (this.hasMoreFlatSounds) {
-        this.renderLimit += 60;
+      if (this.viewMode === 'flat') {
+        if (this.hasMoreFlatSounds) {
+          this.renderLimit += 60;
+        }
+      } else {
+        if (this.hasMoreFolderSounds) {
+          this.renderLimit += 60;
+        }
       }
     },
 
@@ -182,34 +200,67 @@
       }, duration);
     },
 
+    clearSearch() {
+      this.searchQuery = '';
+      this.renderLimit = 80;
+      this.updateHash(true);
+      if (typeof document !== 'undefined') {
+        const input = document.getElementById('search-input');
+        if (input) input.focus();
+      }
+    },
+
     syncFromHash(hashStr) {
       if (!hashStr || !hashStr.startsWith('#')) return;
       const clean = hashStr.substring(1);
       const params = new URLSearchParams(clean);
 
       if (params.has('folder')) {
-        this.viewMode = 'folder';
-        this.currentFolder = params.get('folder') || '';
-        this.renderLimit = 80;
+        const f = params.get('folder') || '';
+        if (this.viewMode !== 'folder' || this.currentFolder !== f) {
+          this.viewMode = 'folder';
+          this.currentFolder = f;
+          this.renderLimit = 80;
+        }
       } else if (params.has('category')) {
-        this.viewMode = 'flat';
-        this.activeCategory = params.get('category') || 'All';
+        const c = params.get('category') || 'All';
+        if (this.viewMode !== 'flat' || this.activeCategory !== c) {
+          this.viewMode = 'flat';
+          this.activeCategory = c;
+          this.renderLimit = 80;
+        }
+      }
+
+      const q = params.get('q') || '';
+      if (this.searchQuery !== q) {
+        this.searchQuery = q;
         this.renderLimit = 80;
       }
     },
 
-    updateHash() {
-      let targetHash = '';
+    buildHash() {
+      const params = new URLSearchParams();
       if (this.viewMode === 'folder') {
-        targetHash = this.currentFolder ? `#folder=${encodeURIComponent(this.currentFolder)}` : '#folder=';
+        params.set('folder', this.currentFolder || '');
       } else {
-        targetHash =
-          this.activeCategory && this.activeCategory !== 'All'
-            ? `#category=${encodeURIComponent(this.activeCategory)}`
-            : '#category=All';
+        params.set('category', this.activeCategory || 'All');
       }
+      const q = (this.searchQuery || '').trim();
+      if (q) {
+        params.set('q', q);
+      }
+      return '#' + params.toString();
+    },
+
+    updateHash(replace = false) {
+      if (typeof window === 'undefined' || !window.location) return;
+      const targetHash = this.buildHash();
       if (window.location.hash !== targetHash) {
-        window.history.pushState(null, '', targetHash);
+        if (replace) {
+          window.history.replaceState(null, '', targetHash);
+        } else {
+          window.history.pushState(null, '', targetHash);
+        }
       }
     },
 
@@ -217,9 +268,11 @@
       this.viewMode = mode;
       this.renderLimit = 80;
       localStorage.setItem('soundboard_view_mode', mode);
-      this.updateHash();
+      this.updateHash(false);
       this.$nextTick(() => {
-        const sentinel = document.getElementById('infinite-scroll-sentinel');
+        const sentinel = document.getElementById(
+          mode === 'folder' ? 'infinite-scroll-sentinel-folder' : 'infinite-scroll-sentinel'
+        );
         if (sentinel && this.infiniteScrollObserver) {
           this.infiniteScrollObserver.observe(sentinel);
         }
@@ -228,14 +281,16 @@
 
     selectCategory(cat) {
       this.activeCategory = cat || 'All';
+      this.searchQuery = '';
       this.renderLimit = 80;
-      this.updateHash();
+      this.updateHash(false);
     },
 
     openFolder(path) {
       this.currentFolder = path || '';
+      this.searchQuery = '';
       this.renderLimit = 80;
-      this.updateHash();
+      this.updateHash(false);
     },
 
     setVolume(val) {
@@ -529,17 +584,26 @@
       return this.categoryCountsMap;
     },
 
+    get searchSounds() {
+      const query = (this.searchQuery || '').toLowerCase().trim();
+      if (!query) return [];
+      return this.sounds.filter(
+        (s) =>
+          (s.title && s.title.toLowerCase().includes(query)) ||
+          (s.name && s.name.toLowerCase().includes(query)) ||
+          (s.category && s.category.toLowerCase().includes(query)) ||
+          (s.filename && s.filename.toLowerCase().includes(query)) ||
+          (s.folder && s.folder.toLowerCase().includes(query))
+      );
+    },
+
     get filteredFlatSounds() {
-      const query = this.searchQuery.toLowerCase().trim();
+      const query = (this.searchQuery || '').toLowerCase().trim();
+      if (query) {
+        return this.searchSounds;
+      }
       return this.sounds.filter((s) => {
-        const matchesCategory = this.activeCategory === 'All' || s.category === this.activeCategory;
-        const matchesQuery =
-          !query ||
-          s.title.toLowerCase().includes(query) ||
-          s.name.toLowerCase().includes(query) ||
-          s.category.toLowerCase().includes(query) ||
-          s.filename.toLowerCase().includes(query);
-        return matchesCategory && matchesQuery;
+        return this.activeCategory === 'All' || s.category === this.activeCategory;
       });
     },
 
@@ -595,90 +659,67 @@
     },
 
     get displayedSubfolders() {
-      const query = this.searchQuery.toLowerCase().trim();
-      const subs = (this.currentFolderObj.subfolders || [])
+      const query = (this.searchQuery || '').toLowerCase().trim();
+      if (query) {
+        const matching = Object.values(this.folders).filter((f) => {
+          const name = (f.name || '').toLowerCase();
+          const path = (f.path || '').toLowerCase();
+          return name.includes(query) || path.includes(query);
+        });
+        return matching.slice(0, 60);
+      }
+      return (this.currentFolderObj.subfolders || [])
         .map((p) => this.folders[p])
         .filter(Boolean);
-      if (!query) return subs;
-      const matchingSounds = this.globalSearchResults;
-      return subs.filter((f) => {
-        const name = (f.name || '').toLowerCase();
-        const path = (f.path || '').toLowerCase();
-        if (name.includes(query) || path.includes(query)) {
-          return true;
-        }
-        const fPath = f.path || '';
-        const prefix = fPath ? `${fPath}/` : '';
-        return matchingSounds.some(
-          (s) => s.folder === fPath || (fPath && (s.folder || '').startsWith(prefix))
-        );
-      });
+    },
+
+    get displayedFolderSounds() {
+      const query = (this.searchQuery || '').toLowerCase().trim();
+      if (query) {
+        return this.searchSounds.slice(0, this.renderLimit);
+      }
+      return this.sounds.filter((s) => (s.folder || '') === this.currentFolder);
     },
 
     get directFolderSounds() {
-      const query = this.searchQuery.toLowerCase().trim();
-      const list = this.sounds.filter((s) => (s.folder || '') === this.currentFolder);
-      if (!query) return list;
-      return list.filter(
-        (s) =>
-          s.title.toLowerCase().includes(query) ||
-          s.name.toLowerCase().includes(query) ||
-          s.filename.toLowerCase().includes(query)
-      );
+      return this.displayedFolderSounds;
     },
 
-    get globalSearchResults() {
-      const query = this.searchQuery.toLowerCase().trim();
-      if (!query) return [];
-      return this.sounds.filter(
-        (s) =>
-          (s.title && s.title.toLowerCase().includes(query)) ||
-          (s.name && s.name.toLowerCase().includes(query)) ||
-          (s.category && s.category.toLowerCase().includes(query)) ||
-          (s.filename && s.filename.toLowerCase().includes(query))
-      );
-    },
-
-    get hasLocalResults() {
-      if (!this.searchQuery.trim()) return true;
-      if (this.viewMode === 'flat') {
-        return this.filteredFlatSounds.length > 0;
-      } else {
-        return this.displayedSubfolders.length > 0 || this.directFolderSounds.length > 0;
-      }
-    },
-
-    get showGlobalFallback() {
-      return Boolean(this.searchQuery.trim() && !this.hasLocalResults && this.globalSearchResults.length > 0);
+    get hasMoreFolderSounds() {
+      if (!this.searchQuery) return false;
+      return this.searchSounds.length > this.renderLimit;
     },
 
     jumpToCategory(category) {
+      this.viewMode = 'flat';
       this.activeCategory = category || 'All';
+      this.searchQuery = '';
       this.renderLimit = 80;
-      this.updateHash();
+      this.updateHash(false);
     },
 
     jumpToFolder(folderPath) {
       this.viewMode = 'folder';
       this.currentFolder = folderPath || '';
+      this.searchQuery = '';
       this.renderLimit = 80;
       localStorage.setItem('soundboard_view_mode', 'folder');
-      this.updateHash();
+      this.updateHash(false);
     },
 
     get displayedCountBadge() {
       if (this.isLoading) {
         return 'Scanning...';
       }
-      if (this.showGlobalFallback) {
-        const count = this.globalSearchResults.length;
-        return `${count} global match${count === 1 ? '' : 'es'}`;
+      if (this.searchQuery.trim()) {
+        const count = this.searchSounds.length;
+        return `${count} match${count === 1 ? '' : 'es'}`;
       }
       if (this.viewMode === 'flat') {
         const count = this.filteredFlatSounds.length;
         return `${count} sound${count === 1 ? '' : 's'}`;
       } else {
-        const count = this.directFolderSounds.length;
+        const count = this.displayedFolderSounds.length;
         return `${count} sound${count === 1 ? '' : 's'}`;
       }
     }

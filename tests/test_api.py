@@ -182,3 +182,14 @@ def test_index_shell_instant_loading(client: TestClient):
         '<body x-data="soundboard" class="min-h-full flex flex-col antialiased selection:bg-brand-500 selection:text-white" x-cloak>'
         not in html
     )
+
+
+def test_index_search_and_folder_ui_elements(client: TestClient):
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.text
+    # Global search and folder navigation elements
+    assert "clearSearch()" in html
+    assert "jumpToFolder(sound.folder)" in html
+    assert "jumpToCategory(sound.category)" in html
+    assert 'id="infinite-scroll-sentinel-folder"' in html
