@@ -34,7 +34,9 @@ uv sync --dev            # Install dependencies and development tools
 
 ### Development & Execution
 ```bash
-uv run main.py           # Launch local server at http://localhost:8000
+uv run poe start         # Recommended: Build Tailwind CSS and launch server at http://localhost:8000
+uv run poe dev           # Launch dev server (with hot-reload) and Tailwind CSS watcher in parallel
+uv run main.py           # Launch local server directly without rebuilding CSS
 uv run fastapi dev main.py # Launch server with hot-reload & debug diagnostics
 ```
 
@@ -76,6 +78,7 @@ Repository skills are located in [`.agents/skills/`](.agents/skills/). Agents mu
 
 ## Guardrails & Non-Negotiables
 - **Zero Node.js / npm Dependencies**: Never introduce Node.js build pipelines, Webpack, Vite, `package.json`, or npm scripts. All frontend tooling is strictly Python-native (e.g. `pytailwindcss` and Poe the Poet).
+- **Frontend Changes & CSS Compilation**: After modifying frontend templates (`templates/index.html`) or client scripts, agents MUST run `uv run poe build-css` (or `uv run poe vendor` / `uv run poe check`) to recompile `static/css/tailwind.min.css` so that any new Tailwind utility classes are generated and styles are never missing.
 - **Read-Only Media**: Never write generated files or cached artwork into the `sounds/` directory.
 - **Git Hygiene**: Never commit audio binaries or files inside `sounds/` (always ensure `sounds/` remains gitignored).
 - **Mandatory Pre-Commit Verification**: Before committing any changes, agents MUST run all quality gates and resolve any open issues or diagnostics:

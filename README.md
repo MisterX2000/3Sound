@@ -56,13 +56,19 @@ docker compose -f docker-compose.dev.yml up --build
 
 ### Option 3: Running Locally with `uv`
 
-1. **Run the soundboard**:
+1. **Run the soundboard (production build)**:
    ```bash
-   uv run main.py
+   uv run poe start
    ```
+   > **Recommended**: `uv run poe start` automatically builds and minifies Tailwind CSS v4 before launching the server at http://localhost:8000.
+   >
+   > Alternatively, you can run directly without rebuilding CSS:
+   > ```bash
+   > uv run main.py
+   > ```
    > `uv` will automatically create the virtual environment, install FastAPI, Uvicorn, Mutagen, and launch the server. No manual `pip install` or `source .venv/bin/activate` needed!
 
-2. **(Optional) Run with hot-reloading (development mode)**:
+2. **Run with hot-reloading (development mode)**:
    ```bash
    uv run poe dev
    ```
@@ -70,7 +76,7 @@ docker compose -f docker-compose.dev.yml up --build
 
 3. **(Optional) Generate sample sounds**:
    ```bash
-   uv run create_samples.py
+   uv run poe samples
    ```
 
 ---
