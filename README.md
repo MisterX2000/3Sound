@@ -1,6 +1,6 @@
-# 🎵 Web Soundboard (Powered by uv & FastAPI)
+# 🎵 Web Soundboard (Powered by FastAPI & Svelte 5)
 
-A modern, fast, and responsive web soundboard built with **Python (FastAPI)**, **uv**, and **Tailwind CSS**.
+A modern, fast, and responsive web soundboard built with **Python (FastAPI)**, **uv**, **Svelte 5** (Runes), **TypeScript**, and **Tailwind CSS v4**.
 
 ---
 
@@ -11,20 +11,20 @@ A modern, fast, and responsive web soundboard built with **Python (FastAPI)**, *
   - **Folder View**: Navigate through folders and subfolders hierarchically with breadcrumbs (`Home / Game SFX / test`) and a one-click "Up" button.
   - **Saved Preference**: Your view mode choice (Flat vs. Folders) is automatically saved in `localStorage` across browser sessions.
 - 🖼️ **Matching Audio Artwork & Folder Covers**:
-  - Individual sounds display matching images (`sound_name.png`, `sound_name.jpg`, etc.).
+  - Individual sounds display matching images (`sound_name.png`, `sound_name.jpg`, etc.) or embedded ID3/FLAC/MP4 album artwork extracted on-the-fly.
   - Folders display folder cover artwork if present (e.g. `cover.png`, `cover.jpg`, `folder.png`, `folder.svg`, `icon.png`).
 - ⏱️ **Audio Length Display**: Calculates and displays the duration of each sound (`0:05`, `1:32`).
 - 🔊 **Wide Audio Format Support**: Plays `.mp3`, `.m4a`, `.ogg`, `.opus`, `.wav`, `.flac`, `.aac`, `.webm`, and `.aiff`.
 - 🎛️ **Full Soundboard Controls**:
-  - **Stop All Button** (with <kbd>Esc</kbd> shortcut) to instantly silence all playing sounds.
-  - **Master Volume Slider** and Mute toggle.
+  - **Stop All Button** (with <kbd>Esc</kbd> shortcut) to instantly silence all playing sounds without navbar layout shift.
+  - **Master Volume Slider** with percentage readout and Mute toggle.
   - **Overlap Mode Toggle**: Choose between overlapping sounds or single-play (solo) mode.
   - **Live Search**: Instant real-time search by sound name, filename, or category (press <kbd>/</kbd> to focus).
   - **Category Pills**: Filter by category or view all grouped together.
-  - **Active Audio Indicator**: Glowing pulse and real-time progress bar on playing buttons. Click a playing sound to pause/stop it.
+  - **Active Audio Indicator**: Real-time progress bar and state indicators on playing buttons. Click a playing sound to pause/stop it.
 - ⚡ **Instant In-Memory Metadata Caching**: File paths and metadata are cached in memory on startup for instant page rendering without disk I/O. The filesystem is only scanned when you click the reload button on the web. Audio/image file bytes are never stored in memory and are streamed on-demand.
-- 📱 **PWA Compatible (Installable)**: Complete Progressive Web App with a custom high-resolution favicon, web app manifest (`manifest.json`), service worker (`sw.js`) for offline shell caching, and standalone home screen installability on iOS, Android, macOS, and Windows.
-- 🐳 **Docker & Docker Compose Ready**: Automated multi-stage build using `uv`.
+- 📱 **PWA Compatible (Installable)**: Complete Progressive Web App with service worker offline shell caching and standalone home screen installability on iOS, Android, macOS, and Windows.
+- 🐳 **Docker & Docker Compose Ready**: Automated multi-stage build using `uv` and Node.js.
 
 ---
 
@@ -46,7 +46,7 @@ Run immediately using the pre-built multi-arch image from GitHub Container Regis
 
 ### Option 2: Docker Compose (Build from Source)
 
-If you are modifying the backend code or Dockerfile locally:
+If you are modifying the code or Dockerfile locally:
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
@@ -56,25 +56,30 @@ docker compose -f docker-compose.dev.yml up --build
 
 ### Option 3: Running Locally with `uv`
 
-1. **Run the soundboard (production build)**:
+1. **Install dependencies**:
+   ```bash
+   uv sync --dev
+   cd frontend && npm install && cd ..
+   ```
+
+2. **Run the soundboard (production build)**:
    ```bash
    uv run poe start
    ```
-   > **Recommended**: `uv run poe start` automatically builds and minifies Tailwind CSS v4 before launching the server at http://localhost:8000.
+   > **Recommended**: `uv run poe start` builds the Svelte 5 frontend with Vite into `frontend/dist/` before launching the server at http://localhost:8000.
    >
-   > Alternatively, you can run directly without rebuilding CSS:
+   > Alternatively, if the frontend is already built, run directly:
    > ```bash
    > uv run main.py
    > ```
-   > `uv` will automatically create the virtual environment, install FastAPI, Uvicorn, Mutagen, and launch the server. No manual `pip install` or `source .venv/bin/activate` needed!
 
-2. **Run with hot-reloading (development mode)**:
+3. **Run with hot-reloading (development mode)**:
    ```bash
    uv run poe dev
    ```
-   > Powered by Poe the Poet running the FastAPI dev server (with hot-reload and diagnostics) and the Tailwind CSS watcher simultaneously in parallel — completely Python-driven with zero Node.js/npm dependencies.
+   > Powered by Poe the Poet running the FastAPI dev server (with hot-reload) and the Vite development server concurrently in parallel.
 
-3. **(Optional) Generate sample sounds**:
+4. **(Optional) Generate sample sounds**:
    ```bash
    uv run poe samples
    ```
@@ -112,38 +117,22 @@ User changes made in the web UI (view mode, volume, mute, overlap) continue to p
 
 ---
 
-## 🔄 Updating Vendor Libraries & Styles
-
-The application runs 100% locally and offline with vendored Alpine.js and Tailwind CSS compiled via `pytailwindcss` (zero Node.js or npm dependencies). To refresh vendor assets or recompile styles:
-
-```bash
-uv run update_vendor.py
-```
-
-Or recompile Tailwind CSS directly:
-```bash
-uv run poe build-css
-```
-
----
-
 ## 🛠️ Task Runner (Poe the Poet)
 
 The project includes preconfigured tasks via [Poe the Poet](https://poethepoet.natn.io/):
 
 | Task | Command | Description |
 | :--- | :--- | :--- |
-| `check` | `uv run poe check` | Run all quality checks (`build-css`, `lint`, `format-check`, `types`, `test`) |
+| `check` | `uv run poe check` | Run all quality checks (`build-frontend`, `check-frontend`, `lint`, `format-check`, `types`, `test`) |
 | `fix` | `uv run poe fix` | Automatically fix linting issues and reformat code |
-| `dev` | `uv run poe dev` | Start dev server and Tailwind CSS watcher in parallel |
-| `start` / `serve` | `uv run poe start` | Build Tailwind CSS and start server at http://localhost:8000 |
-| `build-css` | `uv run poe build-css` | Compile and minify Tailwind CSS v4 |
-| `watch-css` | `uv run poe watch-css` | Watch and recompile Tailwind CSS on file changes |
+| `dev` | `uv run poe dev` | Start FastAPI dev server and Vite dev server in parallel |
+| `start` / `serve` | `uv run poe start` | Build frontend with Vite and start server at http://localhost:8000 |
+| `build-frontend` | `uv run poe build-frontend` | Build Svelte 5 SPA with Vite into `frontend/dist/` |
+| `check-frontend` | `uv run poe check-frontend` | Type-check frontend with `svelte-check` |
 | `test` | `uv run poe test` | Run pytest test suite |
 | `coverage` | `uv run poe coverage` | Run pytest with terminal coverage report |
 | `outdated` | `uv run poe outdated` | Check for outdated dependencies (`uv tree --depth 1 --outdated`) |
 | `samples` | `uv run poe samples` | Generate synthetic sample sounds & embedded artwork |
-| `vendor` | `uv run poe vendor` | Download latest Alpine.js & recompile Tailwind CSS |
 | `bump` | `uv run poe bump` | Bump version across `pyproject.toml` |
 
 ---

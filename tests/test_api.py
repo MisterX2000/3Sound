@@ -120,7 +120,7 @@ def test_static_routes(client: TestClient):
         'content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"'
         in html
     )
-    assert "window.__SOUNDBOARD_CONFIG__" in html
+    assert ('<div id="app"' in html) or ("window.__SOUNDBOARD_CONFIG__" in html)
 
     # Manifest
     response_manifest = client.get("/manifest.json")
@@ -142,19 +142,25 @@ def test_static_routes(client: TestClient):
 
 
 def test_index_missing_404(client: TestClient, tmp_path: Path):
-    with patch("main.INDEX_HTML", tmp_path / "missing_index.html"):
+    with patch("main.SPA_INDEX_HTML", tmp_path / "missing_spa.html"):
         response = client.get("/")
         assert response.status_code == 404
 
 
 def test_manifest_missing_404(client: TestClient, tmp_path: Path):
-    with patch("main.MANIFEST_JSON", tmp_path / "missing_manifest.json"):
+    with (
+        patch("main.FRONTEND_DIST", tmp_path / "missing_dist"),
+        patch("main.MANIFEST_JSON", tmp_path / "missing_manifest.json"),
+    ):
         response = client.get("/manifest.json")
         assert response.status_code == 404
 
 
 def test_sw_missing_404(client: TestClient, tmp_path: Path):
-    with patch("main.SW_JS", tmp_path / "missing_sw.js"):
+    with (
+        patch("main.FRONTEND_DIST", tmp_path / "missing_dist"),
+        patch("main.SW_JS", tmp_path / "missing_sw.js"),
+    ):
         response = client.get("/sw.js")
         assert response.status_code == 404
 
@@ -169,27 +175,25 @@ def test_favicon_missing_404(client: TestClient, tmp_path: Path):
         assert response.status_code == 404
 
 
+def test_api_config(client: TestClient):
+    response = client.get("/api/config")
+    assert response.status_code == 200
+    cfg = response.json()
+    assert "app_title" in cfg
+    assert "default_view_mode" in cfg
+    assert "default_volume" in cfg
+    assert "audio_cache_size" in cfg
+
+
 def test_index_shell_instant_loading(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200
     html = response.text
-    # Instant loading state, badge, and skeleton grid should be present in rendered HTML
-    assert "Scanning audio library..." in html
-    assert "Scanning..." in html
-    assert "animate-pulse" in html
-    assert '<body x-data="soundboard"' in html
-    assert (
-        '<body x-data="soundboard" class="min-h-full flex flex-col antialiased selection:bg-brand-500 selection:text-white" x-cloak>'
-        not in html
-    )
+    assert '<div id="app"' in html
 
 
 def test_index_search_and_folder_ui_elements(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200
     html = response.text
-    # Global search and folder navigation elements
-    assert "clearSearch()" in html
-    assert "jumpToFolder(sound.folder)" in html
-    assert "jumpToCategory(sound.category)" in html
-    assert 'id="infinite-scroll-sentinel-folder"' in html
+    assert '<div id="app"' in html

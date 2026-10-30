@@ -75,14 +75,16 @@ settings = get_settings()
 
 # Path configurations
 SOUNDS_DIR = settings.sounds_dir.resolve()
-TEMPLATES_DIR = BASE_DIR / "templates"
-STATIC_DIR = BASE_DIR / "static"
-INDEX_HTML = TEMPLATES_DIR / "index.html"
-MANIFEST_JSON = STATIC_DIR / "manifest.json"
-SW_JS = STATIC_DIR / "sw.js"
-FAVICON_ICO = STATIC_DIR / "favicon.ico"
-FAVICON_SVG = STATIC_DIR / "favicon.svg"
-FAVICON_PNG = STATIC_DIR / "favicon.png"
+FRONTEND_DIR = BASE_DIR / "frontend"
+FRONTEND_PUBLIC = FRONTEND_DIR / "public"
+FRONTEND_DIST = FRONTEND_DIR / "dist"
+SPA_INDEX_HTML = FRONTEND_DIST / "index.html"
+STATIC_DIR = FRONTEND_DIST / "static"
+MANIFEST_JSON = FRONTEND_DIST / "manifest.webmanifest"
+SW_JS = FRONTEND_DIST / "sw.js"
+FAVICON_ICO = FRONTEND_DIST / "favicon.ico"
+FAVICON_SVG = FRONTEND_DIST / "favicon.svg"
+FAVICON_PNG = FRONTEND_DIST / "favicon.png"
 
 
 # File format & scanner configurations
@@ -132,5 +134,5 @@ def get_client_config(current_settings: Settings | None = None) -> dict[str, Any
 
 # Ensure directories exist
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
-TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
-STATIC_DIR.mkdir(parents=True, exist_ok=True)
+FRONTEND_PUBLIC.mkdir(parents=True, exist_ok=True)
+FRONTEND_DIST.mkdir(parents=True, exist_ok=True)

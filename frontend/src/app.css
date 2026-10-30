@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@source "../index.html";
+@source "./**/*.{svelte,ts,js,html}";
+
+@layer base {
+  html, body {
+    height: 100%;
+    background-color: #020617;
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Hardware-composited progress bar animation */
+@keyframes sound-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.progress-bar-container {
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  transform-origin: left;
+  transform: scaleX(0);
+  opacity: 1;
+  transition: opacity 250ms ease-out;
+  will-change: transform, opacity;
+}
+
+.progress-bar.is-animating {
+  animation-name: sound-progress;
+  animation-duration: var(--sound-duration, 1s);
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.progress-bar.is-looping {
+  animation-iteration-count: infinite;
+}
+
+.progress-bar.is-paused {
+  animation-play-state: paused;
+}
+
+.progress-bar.is-fading {
+  opacity: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

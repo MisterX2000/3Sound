@@ -9,7 +9,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, TypedDict
 
-import jinja2
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -30,12 +29,13 @@ from config import (
     FAVICON_PNG,
     FAVICON_SVG,
     FOLDER_IMAGE_NAMES,
+    FRONTEND_DIST,
+    FRONTEND_PUBLIC,
     HIDE_EMPTY_FOLDERS,
     IMAGE_EXTENSIONS,
-    INDEX_HTML,
     MANIFEST_JSON,
     SOUNDS_DIR,
-    STATIC_DIR,
+    SPA_INDEX_HTML,
     SW_JS,
     get_client_config,
     settings,
@@ -403,25 +403,75 @@ class CachedStaticFiles(StaticFiles):
 app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.mount("/media", CachedStaticFiles(directory=SOUNDS_DIR), name="media")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+if (FRONTEND_DIST / "static").is_dir():
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIST / "static"), name="static")
+elif (FRONTEND_PUBLIC / "static").is_dir():
+    app.mount(
+        "/static", StaticFiles(directory=FRONTEND_PUBLIC / "static"), name="static"
+    )
+elif FRONTEND_DIST.is_dir():
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIST), name="static")
+elif FRONTEND_PUBLIC.is_dir():
+    app.mount("/static", StaticFiles(directory=FRONTEND_PUBLIC), name="static")
+
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount(
+        "/assets",
+        CachedStaticFiles(directory=FRONTEND_DIST / "assets"),
+        name="frontend-assets",
+    )
+
+
+@app.get("/api/config")
+async def config_endpoint():
+    """Return runtime soundboard settings for the frontend client."""
+    return get_client_config()
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    if not INDEX_HTML.is_file():
-        raise HTTPException(status_code=404, detail="index.html template not found")
-    template_content = INDEX_HTML.read_text(encoding="utf-8")
-    client_config = get_client_config()
-    rendered = jinja2.Template(template_content).render(
-        app_title=settings.app_title,
-        client_config=client_config,
-        client_config_json=json.dumps(client_config),
+    if SPA_INDEX_HTML.is_file():
+        return FileResponse(SPA_INDEX_HTML, media_type="text/html")
+    raise HTTPException(
+        status_code=404,
+        detail="Compiled frontend not found. Build it with 'uv run poe build-frontend'.",
     )
-    return HTMLResponse(content=rendered)
+
+
+@app.get("/manifest.webmanifest")
+async def webmanifest():
+    pwa_manifest = FRONTEND_DIST / "manifest.webmanifest"
+    if pwa_manifest.is_file():
+        return FileResponse(pwa_manifest, media_type="application/manifest+json")
+    return await manifest()
+
+
+@app.get("/registerSW.js")
+async def register_sw():
+    reg_file = FRONTEND_DIST / "registerSW.js"
+    if reg_file.is_file():
+        return FileResponse(reg_file, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="registerSW.js not found")
+
+
+@app.get("/workbox-{wb_hash}.js")
+async def workbox_script(wb_hash: str):
+    wb_file = FRONTEND_DIST / f"workbox-{wb_hash}.js"
+    if wb_file.is_file():
+        return FileResponse(
+            wb_file,
+            media_type="application/javascript",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
+    raise HTTPException(status_code=404, detail="Workbox script not found")
 
 
 @app.get("/manifest.json")
 async def manifest():
+    pwa_manifest = FRONTEND_DIST / "manifest.webmanifest"
+    if pwa_manifest.is_file():
+        return FileResponse(pwa_manifest, media_type="application/manifest+json")
     if not MANIFEST_JSON.is_file():
         raise HTTPException(status_code=404, detail="manifest.json not found")
     try:
@@ -438,6 +488,16 @@ async def manifest():
 
 @app.get("/sw.js")
 async def service_worker():
+    pwa_sw = FRONTEND_DIST / "sw.js"
+    if pwa_sw.is_file():
+        return FileResponse(
+            pwa_sw,
+            media_type="application/javascript",
+            headers={
+                "Service-Worker-Allowed": "/",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            },
+        )
     if SW_JS.is_file():
         return FileResponse(
             SW_JS,
@@ -459,6 +519,50 @@ async def favicon():
     if FAVICON_SVG.is_file():
         return FileResponse(FAVICON_SVG, media_type="image/svg+xml")
     raise HTTPException(status_code=404, detail="favicon not found")
+
+
+@app.get("/favicon.svg")
+async def favicon_svg():
+    if FAVICON_SVG.is_file():
+        return FileResponse(FAVICON_SVG, media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="favicon.svg not found")
+
+
+@app.get("/favicon.png")
+async def favicon_png():
+    if FAVICON_PNG.is_file():
+        return FileResponse(FAVICON_PNG, media_type="image/png")
+    raise HTTPException(status_code=404, detail="favicon.png not found")
+
+
+@app.get("/apple-touch-icon.png")
+async def apple_touch_icon():
+    f = FRONTEND_DIST / "apple-touch-icon.png"
+    if not f.is_file():
+        f = FRONTEND_PUBLIC / "apple-touch-icon.png"
+    if f.is_file():
+        return FileResponse(f, media_type="image/png")
+    raise HTTPException(status_code=404, detail="apple-touch-icon.png not found")
+
+
+@app.get("/icon-192.png")
+async def icon_192():
+    f = FRONTEND_DIST / "icon-192.png"
+    if not f.is_file():
+        f = FRONTEND_PUBLIC / "icon-192.png"
+    if f.is_file():
+        return FileResponse(f, media_type="image/png")
+    raise HTTPException(status_code=404, detail="icon-192.png not found")
+
+
+@app.get("/icon-512.png")
+async def icon_512():
+    f = FRONTEND_DIST / "icon-512.png"
+    if not f.is_file():
+        f = FRONTEND_PUBLIC / "icon-512.png"
+    if f.is_file():
+        return FileResponse(f, media_type="image/png")
+    raise HTTPException(status_code=404, detail="icon-512.png not found")
 
 
 @app.get("/api/cover/{sound_id:path}")
