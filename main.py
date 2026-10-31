@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import os
+import re
 import urllib.parse
 import wave
 from contextlib import asynccontextmanager
@@ -455,15 +456,25 @@ async def register_sw():
     raise HTTPException(status_code=404, detail="registerSW.js not found")
 
 
+WORKBOX_HASH_RE = re.compile(r"^[a-zA-Z0-9]+$")
+
+
 @app.get("/workbox-{wb_hash}.js")
 async def workbox_script(wb_hash: str):
-    wb_file = FRONTEND_DIST / f"workbox-{wb_hash}.js"
-    if wb_file.is_file():
-        return FileResponse(
-            wb_file,
-            media_type="application/javascript",
-            headers={"Cache-Control": "public, max-age=31536000, immutable"},
-        )
+    if not WORKBOX_HASH_RE.fullmatch(wb_hash):
+        raise HTTPException(status_code=404, detail="Workbox script not found")
+
+    dist_dir = FRONTEND_DIST.resolve()
+    target_name = f"workbox-{wb_hash}.js"
+
+    for file_path in dist_dir.glob("workbox-*.js"):
+        if file_path.name == target_name and file_path.is_file():
+            return FileResponse(
+                file_path,
+                media_type="application/javascript",
+                headers={"Cache-Control": "public, max-age=31536000, immutable"},
+            )
+
     raise HTTPException(status_code=404, detail="Workbox script not found")
 
 

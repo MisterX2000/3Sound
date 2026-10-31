@@ -197,3 +197,77 @@ def test_index_search_and_folder_ui_elements(client: TestClient):
     assert response.status_code == 200
     html = response.text
     assert '<div id="app"' in html
+
+
+def test_workbox_script_success(client: TestClient, tmp_path: Path):
+    fake_dist = tmp_path / "dist"
+    fake_dist.mkdir()
+    wb_file = fake_dist / "workbox-1234abcd.js"
+    wb_file.write_text("// workbox runtime content", encoding="utf-8")
+
+    with patch("main.FRONTEND_DIST", fake_dist):
+        response = client.get("/workbox-1234abcd.js")
+        assert response.status_code == 200
+        assert "application/javascript" in response.headers["content-type"]
+        assert "public, max-age=31536000, immutable" in response.headers.get(
+            "cache-control", ""
+        )
+        assert response.text == "// workbox runtime content"
+
+
+def test_workbox_script_path_traversal(client: TestClient, tmp_path: Path):
+    with patch("main.FRONTEND_DIST", tmp_path):
+        # Traversal attempts should be rejected (404)
+        response = client.get("/workbox-../../etc/passwd.js")
+        assert response.status_code == 404
+
+        response = client.get("/workbox-..%2F..%2Fetc%2Fpasswd.js")
+        assert response.status_code == 404
+
+
+def test_workbox_script_invalid_hash(client: TestClient, tmp_path: Path):
+    with patch("main.FRONTEND_DIST", tmp_path):
+        response = client.get("/workbox-abc!@#.js")
+        assert response.status_code == 404
+
+        response = client.get("/workbox-abc-def.js")
+        assert response.status_code == 404
+
+
+def test_workbox_script_not_found(client: TestClient, tmp_path: Path):
+    fake_dist = tmp_path / "dist"
+    fake_dist.mkdir()
+
+    with patch("main.FRONTEND_DIST", fake_dist):
+        response = client.get("/workbox-deadbeef.js")
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+
+def test_register_sw_routes(client: TestClient, tmp_path: Path):
+    fake_dist = tmp_path / "dist"
+    fake_dist.mkdir()
+    sw_file = fake_dist / "registerSW.js"
+    sw_file.write_text("// register sw", encoding="utf-8")
+
+    with patch("main.FRONTEND_DIST", fake_dist):
+        response = client.get("/registerSW.js")
+        assert response.status_code == 200
+        assert "application/javascript" in response.headers["content-type"]
+
+    with patch("main.FRONTEND_DIST", tmp_path / "empty"):
+        response = client.get("/registerSW.js")
+        assert response.status_code == 404
+
+
+def test_webmanifest_routes(client: TestClient, tmp_path: Path):
+    fake_dist = tmp_path / "dist"
+    fake_dist.mkdir()
+    pwa_manifest = fake_dist / "manifest.webmanifest"
+    pwa_manifest.write_text('{"name": "3Sound PWA"}', encoding="utf-8")
+
+    with patch("main.FRONTEND_DIST", fake_dist):
+        response = client.get("/manifest.webmanifest")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/manifest+json"
+        assert response.json()["name"] == "3Sound PWA"
