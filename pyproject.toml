@@ -41,6 +41,12 @@ commit = true
 message = "Bump version: {current_version} → {new_version}"
 pre_commit_hooks = ["uv sync --upgrade", "git add uv.lock"]
 
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "frontend/package.json"
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]

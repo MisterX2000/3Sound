@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-31
+
+### Added
+- **Svelte 5 SPA Architecture**: Complete frontend rewrite migrating from Alpine.js to modern Svelte 5 Single Page Application (SPA) leveraging runes (`$state`, `$state.raw`, `$derived`, `$effect`) and TypeScript.
+- **Polyphonic Audio Engine**: Redesigned `AudioState` engine with rapid-trigger voice pooling (up to 8 voices per sound), LRU memory cache management, independent stop controls, solo/overlap playback toggling, and global volume/mute.
+- **Modern Component Architecture**: Modular UI components (`Header`, `SoundCard`, `FolderCard`, `FlatView`, `FolderView`, `EmptySearch`, `Toast`) featuring Lucide icons, responsive navigation, and GPU-composited audio progress bars with smooth opacity fade-out.
+- **Streamlined FastAPI Integration**: FastAPI backend now serves the compiled SPA using `app.frontend('/', directory=FRONTEND_DIST)` with low-priority catch-all routing and strict HTTP cache headers (`/sw.js` no-cache, `/assets` immutable).
+- **Inlined Workbox PWA**: Embedded Workbox runtime directly into `sw.js` via `inlineWorkboxRuntime: true`, providing offline shell caching and an installable desktop and mobile web app without extraneous network requests.
+- **Runtime Environment Settings**: Documented runtime configuration options in `docker-compose.yml` and `docker-compose.dev.yml` (`DEFAULT_VIEW_MODE`, `DEFAULT_VOLUME`, `DEFAULT_ALLOW_OVERLAP`, `DEFAULT_MUTED`, etc.).
+- **Automated CI/CD Releases**: Automated extraction of release notes from `CHANGELOG.md` and release creation in GitHub Actions CI workflow on version tags.
+
+### Changed
+- Migrated static asset build pipeline to Vite with `@tailwindcss/vite` (Tailwind CSS v4).
+- Upgraded container base image to `node:25-alpine` for frontend builds.
+- Upgraded GitHub Actions CI workflows to actions v7 (`actions/checkout@v7`, `astral-sh/setup-uv@v7`, `actions/setup-node@v7`, `docker/build-push-action@v7`).
+- Updated frontend dependencies (`vite-plugin-pwa` to 2.0.0).
+
+### Security
+- Resolved CodeQL path injection alerts and hardened GitHub Actions workflow permissions.
+
+### Removed
+- Removed legacy Alpine.js templates, static scripts, and obsolete endpoint mounts.
+
 ## [0.7.0] - 2026-10-29
 
 ### Added
@@ -85,7 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-arch Docker container images published to GitHub Container Registry (GHCR).
 - GitHub Actions CI workflow for linting and type checking.
 
-[Unreleased]: https://github.com/MisterX2000/3Sound/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/MisterX2000/3Sound/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/MisterX2000/3Sound/compare/v0.7.0...v1.0.0
 [0.7.0]: https://github.com/MisterX2000/3Sound/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/MisterX2000/3Sound/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MisterX2000/3Sound/compare/v0.4.0...v0.5.0
