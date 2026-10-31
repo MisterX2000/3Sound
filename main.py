@@ -6,9 +6,10 @@ import urllib.parse
 import wave
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import Path as FastApiPath
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -405,13 +406,13 @@ if (FRONTEND_DIST / "assets").is_dir():
 
 
 @app.get("/api/config")
-async def config_endpoint():
+async def config_endpoint() -> dict[str, Any]:
     """Return runtime soundboard settings for the frontend client."""
     return get_client_config()
 
 
 @app.get("/sw.js")
-async def service_worker():
+async def service_worker() -> FileResponse:
     sw_file = FRONTEND_DIST / "sw.js"
     if not sw_file.is_file():
         raise HTTPException(status_code=404, detail="sw.js not found")
@@ -426,7 +427,9 @@ async def service_worker():
 
 
 @app.get("/api/cover/{sound_id:path}")
-async def api_get_cover(sound_id: str):
+async def api_get_cover(
+    sound_id: Annotated[str, FastApiPath(description="Relative path of audio sound")],
+) -> Response:
     """Stream embedded cover art extracted on-the-fly from audio metadata without writing to disk."""
     if not EXTRACT_EMBEDDED_ART:
         raise HTTPException(
@@ -458,7 +461,9 @@ async def api_get_cover(sound_id: str):
 
 
 @app.get("/api/sounds")
-async def api_get_sounds(reload: bool = False):
+async def api_get_sounds(
+    reload: Annotated[bool, Query(description="Force background scan reload")] = False,
+) -> dict[str, Any]:
     """Return cached sounds metadata. If reload=True or scan in progress, awaits background scan."""
     data = dict(await get_sounds_async(force_reload=reload))
     data["config"] = get_client_config()
@@ -466,7 +471,7 @@ async def api_get_sounds(reload: bool = False):
 
 
 @app.api_route("/api/reload", methods=["GET", "POST"])
-async def api_reload():
+async def api_reload() -> dict[str, Any]:
     """Force rescan of sounds from filesystem and refresh cache."""
     data = dict(await get_sounds_async(force_reload=True))
     data["config"] = get_client_config()

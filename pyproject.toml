@@ -12,6 +12,9 @@ dependencies = [
 [tool.uv]
 package = false
 
+[tool.fastapi]
+entrypoint = "main:app"
+
 [dependency-groups]
 dev = [
     "bump-my-version>=1.6.7",
@@ -59,8 +62,8 @@ skip_empty = true
 build-frontend = { cmd = "npm --prefix frontend run build", help = "Build Svelte 5 frontend with Vite" }
 check-frontend = { cmd = "npm --prefix frontend run check", help = "Type-check Svelte 5 frontend with svelte-check" }
 dev-frontend = { cmd = "npm --prefix frontend run dev", help = "Launch Vite development server with hot-reload" }
-server-dev = { cmd = "fastapi dev main.py", help = "Launch development server with hot-reload" }
-server-prod = { cmd = "python main.py", help = "Launch production soundboard server" }
+server-dev = { cmd = "fastapi dev", help = "Launch development server with hot-reload" }
+server-prod = { cmd = "fastapi run", help = "Launch production soundboard server" }
 dev = { parallel = ["server-dev", "dev-frontend"], help = "Launch development server and Vite dev server in parallel" }
 start = { sequence = ["build-frontend", "server-prod"], help = "Build Svelte frontend and launch soundboard server" }
 serve = { ref = "start", help = "Alias for start" }

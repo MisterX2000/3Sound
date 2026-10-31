@@ -11,9 +11,9 @@
 
   let isLoading = $state(true);
   let isRescanning = $state(false);
-  let sounds = $state<Sound[]>([]);
-  let folders = $state<Record<string, FolderInfo>>({});
-  let categories = $state<string[]>(['All']);
+  let sounds = $state.raw<Sound[]>([]);
+  let folders = $state.raw<Record<string, FolderInfo>>({});
+  let categories = $state.raw<string[]>(['All']);
   let activeCategory = $state('All');
   let currentFolder = $state('');
   let viewMode = $state<ViewMode>('flat');
@@ -270,6 +270,25 @@
         : displayedSubfolders.length === 0 && displayedFolderSounds.length === 0)
   );
 
+  function onNavChange() {
+    if (typeof window !== 'undefined') {
+      syncFromHash(window.location.hash);
+    }
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      audio.stopAll();
+    } else if (
+      e.key === '/' &&
+      document.activeElement?.tagName !== 'INPUT' &&
+      document.activeElement?.tagName !== 'TEXTAREA'
+    ) {
+      e.preventDefault();
+      headerComponent?.focusSearch();
+    }
+  }
+
   onMount(() => {
     // Restore persisted view mode
     const savedView = localStorage.getItem('soundboard_view_mode') as ViewMode | null;
@@ -279,31 +298,13 @@
 
     // Sync from URL hash
     syncFromHash(window.location.hash);
-    const onNavChange = () => syncFromHash(window.location.hash);
-    window.addEventListener('hashchange', onNavChange);
-    window.addEventListener('popstate', onNavChange);
 
     // Load initial sounds and config
     loadData();
-
-    // Global Hotkeys: Esc -> Stop All, / -> Search
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        audio.stopAll();
-      } else if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-        e.preventDefault();
-        headerComponent?.focusSearch();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('hashchange', onNavChange);
-      window.removeEventListener('popstate', onNavChange);
-    };
   });
 </script>
+
+<svelte:window onhashchange={onNavChange} onpopstate={onNavChange} onkeydown={handleKeyDown} />
 
 <div class="min-h-full flex flex-col">
   <!-- Header Bar -->
