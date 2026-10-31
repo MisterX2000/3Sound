@@ -168,6 +168,38 @@ def test_api_config(client: TestClient):
     assert "audio_cache_size" in cfg
 
 
+def test_api_config_env_overrides(monkeypatch):
+    monkeypatch.setenv("APP_TITLE", "Custom Audio Hub")
+    monkeypatch.setenv("DEFAULT_VIEW_MODE", "folder")
+    monkeypatch.setenv("DEFAULT_VOLUME", "45")
+    monkeypatch.setenv("DEFAULT_ALLOW_OVERLAP", "false")
+    monkeypatch.setenv("DEFAULT_MUTED", "true")
+    monkeypatch.setenv("AUDIO_CACHE_SIZE", "50")
+
+    from config import get_settings
+
+    get_settings.cache_clear()
+
+    from main import app
+
+    test_client = TestClient(app)
+    resp = test_client.get("/api/config")
+    assert resp.status_code == 200
+    cfg = resp.json()
+    assert cfg["app_title"] == "Custom Audio Hub"
+    assert cfg["default_view_mode"] == "folder"
+    assert cfg["default_volume"] == 45
+    assert cfg["default_allow_overlap"] is False
+    assert cfg["default_muted"] is True
+    assert cfg["audio_cache_size"] == 50
+
+    resp_sounds = test_client.get("/api/sounds")
+    assert resp_sounds.status_code == 200
+    assert resp_sounds.json()["config"]["app_title"] == "Custom Audio Hub"
+
+    get_settings.cache_clear()
+
+
 def test_index_shell_instant_loading(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200

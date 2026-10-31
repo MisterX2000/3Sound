@@ -61,10 +61,10 @@ docker compose -f docker-compose.dev.yml up --build # Build from local source
 ```
 
 ## Key Files & Structure
-- `main.py`: FastAPI routes, media mounting with immutable caching headers, on-the-fly artwork extraction (`/api/cover/{id}`), runtime config (`/api/config`), and compiled SPA delivery.
+- `main.py`: FastAPI routes, media mounting with immutable caching headers, on-the-fly artwork extraction (`/api/cover/{id}`), runtime config (`/api/config`), service worker delivery with cache controls, and compiled SPA delivery via `app.frontend()`.
 - `config.py`: Pydantic `Settings` class, environment variable defaults, extension parsers, and client config exporter.
 - `frontend/src/App.svelte`: Root Svelte 5 soundboard component, routing, global shortcuts, and view orchestration.
-- `frontend/src/lib/audio.svelte.ts`: Svelte 5 Rune-based audio engine handling voice pooling, LRU cache eviction, loop control, and volume/mute.
+- `frontend/src/lib/audio.svelte.ts`: Svelte 5 Rune-based audio engine handling voice pooling, LRU cache eviction, loop control, volume/mute, and initial config defaults.
 - `frontend/src/lib/components/`: Modular UI components (`Header.svelte`, `SoundCard.svelte`, `FolderCard.svelte`, `FlatView.svelte`, `FolderView.svelte`, `EmptySearch.svelte`, `Toast.svelte`).
 - `sounds/`: Audio library directory (gitignored; audio files and companion covers).
 
@@ -74,6 +74,9 @@ Repository skills are located in [`.agents/skills/`](.agents/skills/). Agents mu
 | Skill | Reference | Description |
 | :--- | :--- | :--- |
 | **`conventional-commits`** | [`.agents/skills/conventional-commits/SKILL.md`](.agents/skills/conventional-commits/SKILL.md) | Strict Conventional Commits v1.0.0 guidelines (`<type>[scope]: <description>`). Mandatory for all git commit messages. |
+| **`fastapi`** | [`.agents/skills/fastapi/SKILL.md`](.agents/skills/fastapi/SKILL.md) | FastAPI best practices, dependency injection, and frontend app serving (`app.frontend()`). |
+| **`svelte-code-writer`** | [`.agents/skills/svelte-code-writer/SKILL.md`](.agents/skills/svelte-code-writer/SKILL.md) | Svelte 5 documentation lookup and code analysis tools. |
+| **`svelte-core-bestpractices`** | [`.agents/skills/svelte-core-bestpractices/SKILL.md`](.agents/skills/svelte-core-bestpractices/SKILL.md) | Guidance on modern Svelte 5 runes, reactivity, event handling, and components. |
 
 ## Guardrails & Non-Negotiables
 - **Frontend Build Pipeline**: All frontend code lives in `frontend/` and compiles via Vite to `frontend/dist/`.

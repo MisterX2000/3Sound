@@ -9,4 +9,13 @@ services:
       - ./sounds:/app/sounds
     environment:
       - SOUNDS_DIR=/app/sounds
+      # Optional environment overrides:
+      # - APP_TITLE=Soundboard
+      # - DEFAULT_VIEW_MODE=flat # 'flat' or 'folder'
+      # - DEFAULT_VOLUME=80 # 0-100
+      # - DEFAULT_ALLOW_OVERLAP=true # true or false
+      # - DEFAULT_MUTED=false # true or false
+      # - AUDIO_CACHE_SIZE=30
+      # - HIDE_EMPTY_FOLDERS=true
+      # - EXTRACT_EMBEDDED_ART=true
     restart: unless-stopped
