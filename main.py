@@ -3,7 +3,6 @@ import base64
 import json
 import logging
 import os
-import re
 import urllib.parse
 import wave
 from contextlib import asynccontextmanager
@@ -12,7 +11,7 @@ from typing import Any, TypedDict
 
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from mutagen import File as MutagenFile
 from mutagen import MutagenError
@@ -26,17 +25,12 @@ from config import (
     APP_VERSION,
     AUDIO_EXTENSIONS,
     EXTRACT_EMBEDDED_ART,
-    FAVICON_ICO,
-    FAVICON_PNG,
-    FAVICON_SVG,
     FOLDER_IMAGE_NAMES,
     FRONTEND_DIST,
-    FRONTEND_PUBLIC,
     HIDE_EMPTY_FOLDERS,
     IMAGE_EXTENSIONS,
     MANIFEST_JSON,
     SOUNDS_DIR,
-    SPA_INDEX_HTML,
     SW_JS,
     get_client_config,
     settings,
@@ -405,17 +399,6 @@ app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.mount("/media", CachedStaticFiles(directory=SOUNDS_DIR), name="media")
 
-if (FRONTEND_DIST / "static").is_dir():
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIST / "static"), name="static")
-elif (FRONTEND_PUBLIC / "static").is_dir():
-    app.mount(
-        "/static", StaticFiles(directory=FRONTEND_PUBLIC / "static"), name="static"
-    )
-elif FRONTEND_DIST.is_dir():
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIST), name="static")
-elif FRONTEND_PUBLIC.is_dir():
-    app.mount("/static", StaticFiles(directory=FRONTEND_PUBLIC), name="static")
-
 if (FRONTEND_DIST / "assets").is_dir():
     app.mount(
         "/assets",
@@ -428,54 +411,6 @@ if (FRONTEND_DIST / "assets").is_dir():
 async def config_endpoint():
     """Return runtime soundboard settings for the frontend client."""
     return get_client_config()
-
-
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    if SPA_INDEX_HTML.is_file():
-        return FileResponse(SPA_INDEX_HTML, media_type="text/html")
-    raise HTTPException(
-        status_code=404,
-        detail="Compiled frontend not found. Build it with 'uv run poe build-frontend'.",
-    )
-
-
-@app.get("/manifest.webmanifest")
-async def webmanifest():
-    pwa_manifest = FRONTEND_DIST / "manifest.webmanifest"
-    if pwa_manifest.is_file():
-        return FileResponse(pwa_manifest, media_type="application/manifest+json")
-    return await manifest()
-
-
-@app.get("/registerSW.js")
-async def register_sw():
-    reg_file = FRONTEND_DIST / "registerSW.js"
-    if reg_file.is_file():
-        return FileResponse(reg_file, media_type="application/javascript")
-    raise HTTPException(status_code=404, detail="registerSW.js not found")
-
-
-WORKBOX_HASH_RE = re.compile(r"^[a-zA-Z0-9]+$")
-
-
-@app.get("/workbox-{wb_hash}.js")
-async def workbox_script(wb_hash: str):
-    if not WORKBOX_HASH_RE.fullmatch(wb_hash):
-        raise HTTPException(status_code=404, detail="Workbox script not found")
-
-    dist_dir = FRONTEND_DIST.resolve()
-    target_name = f"workbox-{wb_hash}.js"
-
-    for file_path in dist_dir.glob("workbox-*.js"):
-        if file_path.name == target_name and file_path.is_file():
-            return FileResponse(
-                file_path,
-                media_type="application/javascript",
-                headers={"Cache-Control": "public, max-age=31536000, immutable"},
-            )
-
-    raise HTTPException(status_code=404, detail="Workbox script not found")
 
 
 @app.get("/manifest.json")
@@ -519,61 +454,6 @@ async def service_worker():
             },
         )
     raise HTTPException(status_code=404, detail="sw.js not found")
-
-
-@app.get("/favicon.ico")
-async def favicon():
-    if FAVICON_ICO.is_file():
-        return FileResponse(FAVICON_ICO, media_type="image/x-icon")
-    if FAVICON_PNG.is_file():
-        return FileResponse(FAVICON_PNG, media_type="image/png")
-    if FAVICON_SVG.is_file():
-        return FileResponse(FAVICON_SVG, media_type="image/svg+xml")
-    raise HTTPException(status_code=404, detail="favicon not found")
-
-
-@app.get("/favicon.svg")
-async def favicon_svg():
-    if FAVICON_SVG.is_file():
-        return FileResponse(FAVICON_SVG, media_type="image/svg+xml")
-    raise HTTPException(status_code=404, detail="favicon.svg not found")
-
-
-@app.get("/favicon.png")
-async def favicon_png():
-    if FAVICON_PNG.is_file():
-        return FileResponse(FAVICON_PNG, media_type="image/png")
-    raise HTTPException(status_code=404, detail="favicon.png not found")
-
-
-@app.get("/apple-touch-icon.png")
-async def apple_touch_icon():
-    f = FRONTEND_DIST / "apple-touch-icon.png"
-    if not f.is_file():
-        f = FRONTEND_PUBLIC / "apple-touch-icon.png"
-    if f.is_file():
-        return FileResponse(f, media_type="image/png")
-    raise HTTPException(status_code=404, detail="apple-touch-icon.png not found")
-
-
-@app.get("/icon-192.png")
-async def icon_192():
-    f = FRONTEND_DIST / "icon-192.png"
-    if not f.is_file():
-        f = FRONTEND_PUBLIC / "icon-192.png"
-    if f.is_file():
-        return FileResponse(f, media_type="image/png")
-    raise HTTPException(status_code=404, detail="icon-192.png not found")
-
-
-@app.get("/icon-512.png")
-async def icon_512():
-    f = FRONTEND_DIST / "icon-512.png"
-    if not f.is_file():
-        f = FRONTEND_PUBLIC / "icon-512.png"
-    if f.is_file():
-        return FileResponse(f, media_type="image/png")
-    raise HTTPException(status_code=404, detail="icon-512.png not found")
 
 
 @app.get("/api/cover/{sound_id:path}")
@@ -622,6 +502,9 @@ async def api_reload():
     data = dict(await get_sounds_async(force_reload=True))
     data["config"] = get_client_config()
     return data
+
+
+app.frontend("/", directory=FRONTEND_DIST)
 
 
 if __name__ == "__main__":

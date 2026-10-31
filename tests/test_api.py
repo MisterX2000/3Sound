@@ -1,7 +1,10 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from config import FRONTEND_DIST
 
 
 def test_api_sounds(client: TestClient):
@@ -141,10 +144,12 @@ def test_static_routes(client: TestClient):
     assert response_fav.status_code in (200, 404)
 
 
-def test_index_missing_404(client: TestClient, tmp_path: Path):
-    with patch("main.SPA_INDEX_HTML", tmp_path / "missing_spa.html"):
-        response = client.get("/")
-        assert response.status_code == 404
+def test_frontend_missing_dir_404(tmp_path: Path):
+    test_app = FastAPI()
+    test_app.frontend("/", directory=tmp_path)
+    test_client = TestClient(test_app)
+    assert test_client.get("/").status_code == 404
+    assert test_client.get("/nonexistent.js").status_code == 404
 
 
 def test_manifest_missing_404(client: TestClient, tmp_path: Path):
@@ -162,16 +167,6 @@ def test_sw_missing_404(client: TestClient, tmp_path: Path):
         patch("main.SW_JS", tmp_path / "missing_sw.js"),
     ):
         response = client.get("/sw.js")
-        assert response.status_code == 404
-
-
-def test_favicon_missing_404(client: TestClient, tmp_path: Path):
-    with (
-        patch("main.FAVICON_ICO", tmp_path / "missing.ico"),
-        patch("main.FAVICON_PNG", tmp_path / "missing.png"),
-        patch("main.FAVICON_SVG", tmp_path / "missing.svg"),
-    ):
-        response = client.get("/favicon.ico")
         assert response.status_code == 404
 
 
@@ -199,75 +194,45 @@ def test_index_search_and_folder_ui_elements(client: TestClient):
     assert '<div id="app"' in html
 
 
-def test_workbox_script_success(client: TestClient, tmp_path: Path):
-    fake_dist = tmp_path / "dist"
-    fake_dist.mkdir()
-    wb_file = fake_dist / "workbox-1234abcd.js"
-    wb_file.write_text("// workbox runtime content", encoding="utf-8")
-
-    with patch("main.FRONTEND_DIST", fake_dist):
-        response = client.get("/workbox-1234abcd.js")
-        assert response.status_code == 200
-        assert "application/javascript" in response.headers["content-type"]
-        assert "public, max-age=31536000, immutable" in response.headers.get(
-            "cache-control", ""
-        )
-        assert response.text == "// workbox runtime content"
+def test_sw_inlined_workbox_runtime(client: TestClient):
+    response = client.get("/sw.js")
+    assert response.status_code == 200
+    assert "Service-Worker-Allowed" in response.headers
+    assert "no-cache" in response.headers.get("cache-control", "")
+    content = response.text
+    # Verify Workbox runtime is inlined into sw.js
+    assert "workbox" in content
+    assert "index.html" in content
 
 
-def test_workbox_script_path_traversal(client: TestClient, tmp_path: Path):
-    with patch("main.FRONTEND_DIST", tmp_path):
-        # Traversal attempts should be rejected (404)
-        response = client.get("/workbox-../../etc/passwd.js")
-        assert response.status_code == 404
+def test_frontend_static_serving(client: TestClient):
+    # Hashed asset immutable caching
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.is_dir():
+        css_files = list(assets_dir.glob("*.css"))
+        if css_files:
+            resp = client.get(f"/assets/{css_files[0].name}")
+            assert resp.status_code == 200
+            assert "public, max-age=31536000, immutable" in resp.headers.get(
+                "cache-control", ""
+            )
 
-        response = client.get("/workbox-..%2F..%2Fetc%2Fpasswd.js")
-        assert response.status_code == 404
+    # Standard static files served via app.frontend
+    resp_reg = client.get("/registerSW.js")
+    assert resp_reg.status_code == 200
+    assert "javascript" in resp_reg.headers["content-type"]
 
+    resp_manifest = client.get("/manifest.webmanifest")
+    assert resp_manifest.status_code == 200
 
-def test_workbox_script_invalid_hash(client: TestClient, tmp_path: Path):
-    with patch("main.FRONTEND_DIST", tmp_path):
-        response = client.get("/workbox-abc!@#.js")
-        assert response.status_code == 404
+    resp_svg = client.get("/favicon.svg")
+    assert resp_svg.status_code == 200
+    assert "image/svg+xml" in resp_svg.headers["content-type"]
 
-        response = client.get("/workbox-abc-def.js")
-        assert response.status_code == 404
+    resp_icon = client.get("/apple-touch-icon.png")
+    assert resp_icon.status_code == 200
+    assert "image/png" in resp_icon.headers["content-type"]
 
-
-def test_workbox_script_not_found(client: TestClient, tmp_path: Path):
-    fake_dist = tmp_path / "dist"
-    fake_dist.mkdir()
-
-    with patch("main.FRONTEND_DIST", fake_dist):
-        response = client.get("/workbox-deadbeef.js")
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
-
-
-def test_register_sw_routes(client: TestClient, tmp_path: Path):
-    fake_dist = tmp_path / "dist"
-    fake_dist.mkdir()
-    sw_file = fake_dist / "registerSW.js"
-    sw_file.write_text("// register sw", encoding="utf-8")
-
-    with patch("main.FRONTEND_DIST", fake_dist):
-        response = client.get("/registerSW.js")
-        assert response.status_code == 200
-        assert "application/javascript" in response.headers["content-type"]
-
-    with patch("main.FRONTEND_DIST", tmp_path / "empty"):
-        response = client.get("/registerSW.js")
-        assert response.status_code == 404
-
-
-def test_webmanifest_routes(client: TestClient, tmp_path: Path):
-    fake_dist = tmp_path / "dist"
-    fake_dist.mkdir()
-    pwa_manifest = fake_dist / "manifest.webmanifest"
-    pwa_manifest.write_text('{"name": "3Sound PWA"}', encoding="utf-8")
-
-    with patch("main.FRONTEND_DIST", fake_dist):
-        response = client.get("/manifest.webmanifest")
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "application/manifest+json"
-        assert response.json()["name"] == "3Sound PWA"
+    # Nonexistent file returns 404
+    resp_404 = client.get("/nonexistent-file.xyz")
+    assert resp_404.status_code == 404

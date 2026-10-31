@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "fastapi": {
+      "source": "fastapi/fastapi",
+      "sourceType": "github",
+      "skillPath": "fastapi/.agents/skills/fastapi/SKILL.md",
+      "computedHash": "2f0ff30756b435168276e1a7eb78c07856118575ea174535de7ed86dc88c9be4"
+    },
     "svelte-code-writer": {
       "source": "sveltejs/ai-tools",
       "sourceType": "github",
