@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import json
 import logging
 import os
 import urllib.parse
@@ -29,9 +28,7 @@ from config import (
     FRONTEND_DIST,
     HIDE_EMPTY_FOLDERS,
     IMAGE_EXTENSIONS,
-    MANIFEST_JSON,
     SOUNDS_DIR,
-    SW_JS,
     get_client_config,
     settings,
 )
@@ -413,47 +410,19 @@ async def config_endpoint():
     return get_client_config()
 
 
-@app.get("/manifest.json")
-async def manifest():
-    pwa_manifest = FRONTEND_DIST / "manifest.webmanifest"
-    if pwa_manifest.is_file():
-        return FileResponse(pwa_manifest, media_type="application/manifest+json")
-    if not MANIFEST_JSON.is_file():
-        raise HTTPException(status_code=404, detail="manifest.json not found")
-    try:
-        data = json.loads(MANIFEST_JSON.read_text(encoding="utf-8"))
-        data["name"] = settings.app_title
-        data["short_name"] = settings.app_title
-        return Response(
-            content=json.dumps(data, indent=2),
-            media_type="application/manifest+json",
-        )
-    except json.JSONDecodeError, OSError:
-        return FileResponse(MANIFEST_JSON, media_type="application/manifest+json")
-
-
 @app.get("/sw.js")
 async def service_worker():
-    pwa_sw = FRONTEND_DIST / "sw.js"
-    if pwa_sw.is_file():
-        return FileResponse(
-            pwa_sw,
-            media_type="application/javascript",
-            headers={
-                "Service-Worker-Allowed": "/",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-            },
-        )
-    if SW_JS.is_file():
-        return FileResponse(
-            SW_JS,
-            media_type="application/javascript",
-            headers={
-                "Service-Worker-Allowed": "/",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-            },
-        )
-    raise HTTPException(status_code=404, detail="sw.js not found")
+    sw_file = FRONTEND_DIST / "sw.js"
+    if not sw_file.is_file():
+        raise HTTPException(status_code=404, detail="sw.js not found")
+    return FileResponse(
+        sw_file,
+        media_type="application/javascript",
+        headers={
+            "Service-Worker-Allowed": "/",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+    )
 
 
 @app.get("/api/cover/{sound_id:path}")

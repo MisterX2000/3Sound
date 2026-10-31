@@ -18,6 +18,8 @@ def test_api_sounds(client: TestClient):
     assert "config" in data
     assert data["config"]["default_view_mode"] in ("flat", "folder")
     assert isinstance(data["config"]["default_volume"], int)
+    assert isinstance(data["config"]["default_allow_overlap"], bool)
+    assert isinstance(data["config"]["default_muted"], bool)
     assert data["config"]["audio_cache_size"] == 30
     assert len(data["sounds"]) >= 3
     # Check that sound_url includes timestamp cache-busting
@@ -125,23 +127,19 @@ def test_static_routes(client: TestClient):
     )
     assert ('<div id="app"' in html) or ("window.__SOUNDBOARD_CONFIG__" in html)
 
-    # Manifest
-    response_manifest = client.get("/manifest.json")
-    assert response_manifest.status_code in (200, 404)
-    if response_manifest.status_code == 200:
-        manifest_data = response_manifest.json()
-        assert "name" in manifest_data
-        assert "short_name" in manifest_data
+    # Webmanifest
+    response_manifest = client.get("/manifest.webmanifest")
+    assert response_manifest.status_code == 200
+    assert "manifest" in response_manifest.headers.get("content-type", "")
 
     # Service worker
     response_sw = client.get("/sw.js")
-    assert response_sw.status_code in (200, 404)
-    if response_sw.status_code == 200:
-        assert "Service-Worker-Allowed" in response_sw.headers
+    assert response_sw.status_code == 200
+    assert "Service-Worker-Allowed" in response_sw.headers
 
     # Favicon
     response_fav = client.get("/favicon.ico")
-    assert response_fav.status_code in (200, 404)
+    assert response_fav.status_code == 200
 
 
 def test_frontend_missing_dir_404(tmp_path: Path):
@@ -152,20 +150,8 @@ def test_frontend_missing_dir_404(tmp_path: Path):
     assert test_client.get("/nonexistent.js").status_code == 404
 
 
-def test_manifest_missing_404(client: TestClient, tmp_path: Path):
-    with (
-        patch("main.FRONTEND_DIST", tmp_path / "missing_dist"),
-        patch("main.MANIFEST_JSON", tmp_path / "missing_manifest.json"),
-    ):
-        response = client.get("/manifest.json")
-        assert response.status_code == 404
-
-
 def test_sw_missing_404(client: TestClient, tmp_path: Path):
-    with (
-        patch("main.FRONTEND_DIST", tmp_path / "missing_dist"),
-        patch("main.SW_JS", tmp_path / "missing_sw.js"),
-    ):
+    with patch("main.FRONTEND_DIST", tmp_path / "missing_dist"):
         response = client.get("/sw.js")
         assert response.status_code == 404
 
@@ -177,6 +163,8 @@ def test_api_config(client: TestClient):
     assert "app_title" in cfg
     assert "default_view_mode" in cfg
     assert "default_volume" in cfg
+    assert "default_allow_overlap" in cfg
+    assert "default_muted" in cfg
     assert "audio_cache_size" in cfg
 
 

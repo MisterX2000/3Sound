@@ -94,6 +94,22 @@ export class AudioState {
     this.setOverlap(!this.allowOverlap);
   }
 
+  applyConfigDefaults(cfg: { default_volume?: number; default_muted?: boolean; default_allow_overlap?: boolean }) {
+    if (typeof window === 'undefined') return;
+
+    if (localStorage.getItem('soundboard_volume') === null && typeof cfg.default_volume === 'number') {
+      this.masterVolume = Math.max(0, Math.min(1, cfg.default_volume / 100));
+      this.syncVolumes();
+    }
+    if (localStorage.getItem('soundboard_muted') === null && typeof cfg.default_muted === 'boolean') {
+      this.isMuted = cfg.default_muted;
+      this.syncVolumes();
+    }
+    if (localStorage.getItem('soundboard_overlap') === null && typeof cfg.default_allow_overlap === 'boolean') {
+      this.allowOverlap = cfg.default_allow_overlap;
+    }
+  }
+
   setCacheSize(size: number) {
     if (size > 0) this.maxCachedSounds = size;
   }

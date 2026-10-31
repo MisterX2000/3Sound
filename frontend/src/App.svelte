@@ -183,6 +183,10 @@
         if (data.config.audio_cache_size) {
           audio.setCacheSize(data.config.audio_cache_size);
         }
+        if (typeof window !== 'undefined' && !window.location.hash && data.config.default_view_mode) {
+          viewMode = data.config.default_view_mode;
+        }
+        audio.applyConfigDefaults(data.config);
       }
 
       if (forceReload) {

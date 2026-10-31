@@ -25,12 +25,11 @@ export interface FolderInfo {
 
 export interface ClientConfig {
   app_title: string;
-  default_view_mode: 'flat' | 'folder';
+  default_view_mode: ViewMode;
   default_volume: number;
-  allow_overlap: boolean;
+  default_allow_overlap: boolean;
+  default_muted: boolean;
   audio_cache_size: number;
-  extract_embedded_art: boolean;
-  version?: string;
 }
 
 export interface SoundsResponse {
