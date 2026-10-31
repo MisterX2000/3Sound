@@ -1,4 +1,12 @@
-# Use official lightweight Python image
+# Stage 1: Build Svelte 5 frontend
+FROM node:22-alpine AS frontend-builder
+WORKDIR /build
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Python production runner
 FROM python:3.15-slim
 
 # Install uv from the official Astral image
@@ -24,10 +32,9 @@ COPY pyproject.toml uv.lock* .python-version* ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
-# Copy application files
+# Copy application files and built frontend
 COPY *.py ./
-COPY templates/ ./templates/
-COPY static/ ./static/
+COPY --from=frontend-builder /build/dist ./frontend/dist
 
 # Expose web server port
 EXPOSE 8000

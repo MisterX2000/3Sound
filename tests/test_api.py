@@ -1,7 +1,10 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from config import FRONTEND_DIST
 
 
 def test_api_sounds(client: TestClient):
@@ -15,6 +18,8 @@ def test_api_sounds(client: TestClient):
     assert "config" in data
     assert data["config"]["default_view_mode"] in ("flat", "folder")
     assert isinstance(data["config"]["default_volume"], int)
+    assert isinstance(data["config"]["default_allow_overlap"], bool)
+    assert isinstance(data["config"]["default_muted"], bool)
     assert data["config"]["audio_cache_size"] == 30
     assert len(data["sounds"]) >= 3
     # Check that sound_url includes timestamp cache-busting
@@ -120,76 +125,134 @@ def test_static_routes(client: TestClient):
         'content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"'
         in html
     )
-    assert "window.__SOUNDBOARD_CONFIG__" in html
+    assert ('<div id="app"' in html) or ("window.__SOUNDBOARD_CONFIG__" in html)
 
-    # Manifest
-    response_manifest = client.get("/manifest.json")
-    assert response_manifest.status_code in (200, 404)
-    if response_manifest.status_code == 200:
-        manifest_data = response_manifest.json()
-        assert "name" in manifest_data
-        assert "short_name" in manifest_data
+    # Webmanifest
+    response_manifest = client.get("/manifest.webmanifest")
+    assert response_manifest.status_code == 200
+    assert "manifest" in response_manifest.headers.get("content-type", "")
 
     # Service worker
     response_sw = client.get("/sw.js")
-    assert response_sw.status_code in (200, 404)
-    if response_sw.status_code == 200:
-        assert "Service-Worker-Allowed" in response_sw.headers
+    assert response_sw.status_code == 200
+    assert "Service-Worker-Allowed" in response_sw.headers
 
     # Favicon
     response_fav = client.get("/favicon.ico")
-    assert response_fav.status_code in (200, 404)
+    assert response_fav.status_code == 200
 
 
-def test_index_missing_404(client: TestClient, tmp_path: Path):
-    with patch("main.INDEX_HTML", tmp_path / "missing_index.html"):
-        response = client.get("/")
-        assert response.status_code == 404
-
-
-def test_manifest_missing_404(client: TestClient, tmp_path: Path):
-    with patch("main.MANIFEST_JSON", tmp_path / "missing_manifest.json"):
-        response = client.get("/manifest.json")
-        assert response.status_code == 404
+def test_frontend_missing_dir_404(tmp_path: Path):
+    test_app = FastAPI()
+    test_app.frontend("/", directory=tmp_path)
+    test_client = TestClient(test_app)
+    assert test_client.get("/").status_code == 404
+    assert test_client.get("/nonexistent.js").status_code == 404
 
 
 def test_sw_missing_404(client: TestClient, tmp_path: Path):
-    with patch("main.SW_JS", tmp_path / "missing_sw.js"):
+    with patch("main.FRONTEND_DIST", tmp_path / "missing_dist"):
         response = client.get("/sw.js")
         assert response.status_code == 404
 
 
-def test_favicon_missing_404(client: TestClient, tmp_path: Path):
-    with (
-        patch("main.FAVICON_ICO", tmp_path / "missing.ico"),
-        patch("main.FAVICON_PNG", tmp_path / "missing.png"),
-        patch("main.FAVICON_SVG", tmp_path / "missing.svg"),
-    ):
-        response = client.get("/favicon.ico")
-        assert response.status_code == 404
+def test_api_config(client: TestClient):
+    response = client.get("/api/config")
+    assert response.status_code == 200
+    cfg = response.json()
+    assert "app_title" in cfg
+    assert "default_view_mode" in cfg
+    assert "default_volume" in cfg
+    assert "default_allow_overlap" in cfg
+    assert "default_muted" in cfg
+    assert "audio_cache_size" in cfg
+
+
+def test_api_config_env_overrides(monkeypatch):
+    monkeypatch.setenv("APP_TITLE", "Custom Audio Hub")
+    monkeypatch.setenv("DEFAULT_VIEW_MODE", "folder")
+    monkeypatch.setenv("DEFAULT_VOLUME", "45")
+    monkeypatch.setenv("DEFAULT_ALLOW_OVERLAP", "false")
+    monkeypatch.setenv("DEFAULT_MUTED", "true")
+    monkeypatch.setenv("AUDIO_CACHE_SIZE", "50")
+
+    from config import get_settings
+
+    get_settings.cache_clear()
+
+    from main import app
+
+    test_client = TestClient(app)
+    resp = test_client.get("/api/config")
+    assert resp.status_code == 200
+    cfg = resp.json()
+    assert cfg["app_title"] == "Custom Audio Hub"
+    assert cfg["default_view_mode"] == "folder"
+    assert cfg["default_volume"] == 45
+    assert cfg["default_allow_overlap"] is False
+    assert cfg["default_muted"] is True
+    assert cfg["audio_cache_size"] == 50
+
+    resp_sounds = test_client.get("/api/sounds")
+    assert resp_sounds.status_code == 200
+    assert resp_sounds.json()["config"]["app_title"] == "Custom Audio Hub"
+
+    get_settings.cache_clear()
 
 
 def test_index_shell_instant_loading(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200
     html = response.text
-    # Instant loading state, badge, and skeleton grid should be present in rendered HTML
-    assert "Scanning audio library..." in html
-    assert "Scanning..." in html
-    assert "animate-pulse" in html
-    assert '<body x-data="soundboard"' in html
-    assert (
-        '<body x-data="soundboard" class="min-h-full flex flex-col antialiased selection:bg-brand-500 selection:text-white" x-cloak>'
-        not in html
-    )
+    assert '<div id="app"' in html
 
 
 def test_index_search_and_folder_ui_elements(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200
     html = response.text
-    # Global search and folder navigation elements
-    assert "clearSearch()" in html
-    assert "jumpToFolder(sound.folder)" in html
-    assert "jumpToCategory(sound.category)" in html
-    assert 'id="infinite-scroll-sentinel-folder"' in html
+    assert '<div id="app"' in html
+
+
+def test_sw_inlined_workbox_runtime(client: TestClient):
+    response = client.get("/sw.js")
+    assert response.status_code == 200
+    assert "Service-Worker-Allowed" in response.headers
+    assert "no-cache" in response.headers.get("cache-control", "")
+    content = response.text
+    # Verify Workbox runtime is inlined into sw.js
+    assert "workbox" in content
+    assert "index.html" in content
+
+
+def test_frontend_static_serving(client: TestClient):
+    # Hashed asset immutable caching
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.is_dir():
+        css_files = list(assets_dir.glob("*.css"))
+        if css_files:
+            resp = client.get(f"/assets/{css_files[0].name}")
+            assert resp.status_code == 200
+            assert "public, max-age=31536000, immutable" in resp.headers.get(
+                "cache-control", ""
+            )
+
+    # Standard static files served via app.frontend
+    resp_reg = client.get("/registerSW.js")
+    assert resp_reg.status_code == 200
+    assert "javascript" in resp_reg.headers["content-type"]
+
+    resp_manifest = client.get("/manifest.webmanifest")
+    assert resp_manifest.status_code == 200
+
+    resp_svg = client.get("/favicon.svg")
+    assert resp_svg.status_code == 200
+    assert "image/svg+xml" in resp_svg.headers["content-type"]
+
+    resp_icon = client.get("/apple-touch-icon.png")
+    assert resp_icon.status_code == 200
+    assert "image/png" in resp_icon.headers["content-type"]
+
+    # Nonexistent file returns 404
+    resp_404 = client.get("/nonexistent-file.xyz")
+    assert resp_404.status_code == 404

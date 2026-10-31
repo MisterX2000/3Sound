@@ -75,14 +75,8 @@ settings = get_settings()
 
 # Path configurations
 SOUNDS_DIR = settings.sounds_dir.resolve()
-TEMPLATES_DIR = BASE_DIR / "templates"
-STATIC_DIR = BASE_DIR / "static"
-INDEX_HTML = TEMPLATES_DIR / "index.html"
-MANIFEST_JSON = STATIC_DIR / "manifest.json"
-SW_JS = STATIC_DIR / "sw.js"
-FAVICON_ICO = STATIC_DIR / "favicon.ico"
-FAVICON_SVG = STATIC_DIR / "favicon.svg"
-FAVICON_PNG = STATIC_DIR / "favicon.png"
+FRONTEND_DIR = BASE_DIR / "frontend"
+FRONTEND_DIST = FRONTEND_DIR / "dist"
 
 
 # File format & scanner configurations
@@ -109,11 +103,6 @@ FOLDER_IMAGE_NAMES = parse_names(settings.folder_image_names)
 HIDE_EMPTY_FOLDERS = settings.hide_empty_folders
 EXTRACT_EMBEDDED_ART = settings.extract_embedded_art
 APP_TITLE = settings.app_title
-DEFAULT_VIEW_MODE = settings.default_view_mode
-DEFAULT_VOLUME = settings.default_volume
-DEFAULT_ALLOW_OVERLAP = settings.default_allow_overlap
-DEFAULT_MUTED = settings.default_muted
-AUDIO_CACHE_SIZE = settings.audio_cache_size
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".bmp"}
 
 
@@ -132,5 +121,4 @@ def get_client_config(current_settings: Settings | None = None) -> dict[str, Any
 
 # Ensure directories exist
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
-TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
-STATIC_DIR.mkdir(parents=True, exist_ok=True)
+FRONTEND_DIST.mkdir(parents=True, exist_ok=True)

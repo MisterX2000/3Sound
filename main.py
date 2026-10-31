@@ -1,18 +1,17 @@
 import asyncio
 import base64
-import json
 import logging
 import os
 import urllib.parse
 import wave
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 
-import jinja2
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import Path as FastApiPath
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from mutagen import File as MutagenFile
 from mutagen import MutagenError
@@ -26,17 +25,11 @@ from config import (
     APP_VERSION,
     AUDIO_EXTENSIONS,
     EXTRACT_EMBEDDED_ART,
-    FAVICON_ICO,
-    FAVICON_PNG,
-    FAVICON_SVG,
     FOLDER_IMAGE_NAMES,
+    FRONTEND_DIST,
     HIDE_EMPTY_FOLDERS,
     IMAGE_EXTENSIONS,
-    INDEX_HTML,
-    MANIFEST_JSON,
     SOUNDS_DIR,
-    STATIC_DIR,
-    SW_JS,
     get_client_config,
     settings,
 )
@@ -403,66 +396,40 @@ class CachedStaticFiles(StaticFiles):
 app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.mount("/media", CachedStaticFiles(directory=SOUNDS_DIR), name="media")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    if not INDEX_HTML.is_file():
-        raise HTTPException(status_code=404, detail="index.html template not found")
-    template_content = INDEX_HTML.read_text(encoding="utf-8")
-    client_config = get_client_config()
-    rendered = jinja2.Template(template_content).render(
-        app_title=settings.app_title,
-        client_config=client_config,
-        client_config_json=json.dumps(client_config),
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount(
+        "/assets",
+        CachedStaticFiles(directory=FRONTEND_DIST / "assets"),
+        name="frontend-assets",
     )
-    return HTMLResponse(content=rendered)
 
 
-@app.get("/manifest.json")
-async def manifest():
-    if not MANIFEST_JSON.is_file():
-        raise HTTPException(status_code=404, detail="manifest.json not found")
-    try:
-        data = json.loads(MANIFEST_JSON.read_text(encoding="utf-8"))
-        data["name"] = settings.app_title
-        data["short_name"] = settings.app_title
-        return Response(
-            content=json.dumps(data, indent=2),
-            media_type="application/manifest+json",
-        )
-    except json.JSONDecodeError, OSError:
-        return FileResponse(MANIFEST_JSON, media_type="application/manifest+json")
+@app.get("/api/config")
+async def config_endpoint() -> dict[str, Any]:
+    """Return runtime soundboard settings for the frontend client."""
+    return get_client_config()
 
 
 @app.get("/sw.js")
-async def service_worker():
-    if SW_JS.is_file():
-        return FileResponse(
-            SW_JS,
-            media_type="application/javascript",
-            headers={
-                "Service-Worker-Allowed": "/",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-            },
-        )
-    raise HTTPException(status_code=404, detail="sw.js not found")
-
-
-@app.get("/favicon.ico")
-async def favicon():
-    if FAVICON_ICO.is_file():
-        return FileResponse(FAVICON_ICO, media_type="image/x-icon")
-    if FAVICON_PNG.is_file():
-        return FileResponse(FAVICON_PNG, media_type="image/png")
-    if FAVICON_SVG.is_file():
-        return FileResponse(FAVICON_SVG, media_type="image/svg+xml")
-    raise HTTPException(status_code=404, detail="favicon not found")
+async def service_worker() -> FileResponse:
+    sw_file = FRONTEND_DIST / "sw.js"
+    if not sw_file.is_file():
+        raise HTTPException(status_code=404, detail="sw.js not found")
+    return FileResponse(
+        sw_file,
+        media_type="application/javascript",
+        headers={
+            "Service-Worker-Allowed": "/",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+    )
 
 
 @app.get("/api/cover/{sound_id:path}")
-async def api_get_cover(sound_id: str):
+async def api_get_cover(
+    sound_id: Annotated[str, FastApiPath(description="Relative path of audio sound")],
+) -> Response:
     """Stream embedded cover art extracted on-the-fly from audio metadata without writing to disk."""
     if not EXTRACT_EMBEDDED_ART:
         raise HTTPException(
@@ -494,7 +461,9 @@ async def api_get_cover(sound_id: str):
 
 
 @app.get("/api/sounds")
-async def api_get_sounds(reload: bool = False):
+async def api_get_sounds(
+    reload: Annotated[bool, Query(description="Force background scan reload")] = False,
+) -> dict[str, Any]:
     """Return cached sounds metadata. If reload=True or scan in progress, awaits background scan."""
     data = dict(await get_sounds_async(force_reload=reload))
     data["config"] = get_client_config()
@@ -502,11 +471,14 @@ async def api_get_sounds(reload: bool = False):
 
 
 @app.api_route("/api/reload", methods=["GET", "POST"])
-async def api_reload():
+async def api_reload() -> dict[str, Any]:
     """Force rescan of sounds from filesystem and refresh cache."""
     data = dict(await get_sounds_async(force_reload=True))
     data["config"] = get_client_config()
     return data
+
+
+app.frontend("/", directory=FRONTEND_DIST)
 
 
 if __name__ == "__main__":
