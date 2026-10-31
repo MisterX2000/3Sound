@@ -321,7 +321,6 @@
     onClearSearch={clearSearch}
     onRescan={() => loadData(true)}
     onOpenFolder={openFolder}
-    onGoToParent={goToParentFolder}
   />
 
   <!-- Main Content Area -->
